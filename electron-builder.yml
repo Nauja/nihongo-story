@@ -1,0 +1,27 @@
+appId: com.nihongo-story.app
+productName: Nihongo Story
+copyright: Copyright © 2025
+
+directories:
+  output: dist-electron
+
+files:
+  - dist/**/*
+  - electron/main.cjs
+
+mac:
+  category: public.app-category.education
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Education
