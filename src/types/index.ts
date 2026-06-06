@@ -4,6 +4,7 @@ export interface Settings {
   provider: AIProvider
   claudeApiKey: string
   geminiApiKey: string
+  geminiModel?: string
   ollamaBaseUrl: string
   ollamaModel: string
   wanikaniApiKey: string
@@ -104,6 +105,7 @@ export interface GenerateParams {
   length: number
   provider: AIProvider
   apiKey: string
+  geminiModel?: string
   ollamaBaseUrl: string
   ollamaModel: string
 }

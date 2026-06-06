@@ -303,6 +303,24 @@ export default function Settings() {
                 placeholder="AIza..."
                 hint="Required for story generation."
               />
+              <Form.Group>
+                <Form.Label className="small fw-medium">Model</Form.Label>
+                <Form.Select
+                  value={settings.geminiModel || "gemini-2.5-flash"}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, geminiModel: e.target.value }))
+                  }
+                >
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (default)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                </Form.Select>
+                <Form.Text className="text-secondary">
+                  Flash models are faster and free-tier friendly; Pro models offer higher quality.
+                </Form.Text>
+              </Form.Group>
             </>
           )}
 

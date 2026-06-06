@@ -67,6 +67,7 @@ export default function Generate() {
         length: storyLength,
         provider: settings.provider,
         apiKey,
+        geminiModel: settings.geminiModel,
         ollamaBaseUrl: settings.ollamaBaseUrl,
         ollamaModel: settings.ollamaModel,
       };

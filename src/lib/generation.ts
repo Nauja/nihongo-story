@@ -166,7 +166,7 @@ async function generateStoryAnthropic(params: GenerateParams): Promise<Story> {
 async function generateStoryGemini(params: GenerateParams): Promise<Story> {
   const genAI = new GoogleGenerativeAI(params.apiKey);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: params.geminiModel || "gemini-2.5-flash",
     systemInstruction: SYSTEM_PROMPT,
   });
 

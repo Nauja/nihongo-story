@@ -127,6 +127,7 @@ export function getSettings(): Settings {
     provider: 'gemini',
     claudeApiKey: '',
     geminiApiKey: '',
+    geminiModel: 'gemini-2.5-flash',
     ollamaBaseUrl: 'http://localhost:11434',
     ollamaModel: 'qwen2.5:7b',
     wanikaniApiKey: '',
