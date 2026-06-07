@@ -11,6 +11,7 @@ export interface Settings {
   wanikaniPopupMode?: 'simple' | 'advanced'
   wanikaniLevelColors?: boolean
   showFurigana?: boolean
+  ttsVolume?: number
 theme: 'light' | 'dark'
 }
 
