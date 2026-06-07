@@ -185,6 +185,44 @@ export function setWKCacheBuiltAt(): void {
   localStorage.setItem(KEYS.wkCacheBuiltAt, new Date().toISOString())
 }
 
+// ── Export / Import ───────────────────────────────────────────────────────────
+
+export function exportStories(): void {
+  const stories = getStories()
+  const payload = JSON.stringify({ version: 1, stories }, null, 2)
+  const blob = new Blob([payload], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `nihongo-stories-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export function exportStory(story: Story): void {
+  const payload = JSON.stringify({ version: 1, stories: [story] }, null, 2)
+  const blob = new Blob([payload], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const slug = story.title.replace(/[^\w぀-鿿]+/g, '-').replace(/^-|-$/g, '')
+  a.download = `nihongo-story-${slug}-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function importStories(file: File): Promise<{ imported: number; skipped: number }> {
+  const text = await file.text()
+  const data = JSON.parse(text)
+  const incoming: Story[] = Array.isArray(data) ? data : data?.stories
+  if (!Array.isArray(incoming)) throw new Error('Invalid format')
+  const existing = getStories()
+  const existingIds = new Set(existing.map((s) => s.id))
+  const toAdd = incoming.filter((s) => !existingIds.has(s.id))
+  set(KEYS.stories, [...toAdd, ...existing])
+  return { imported: toAdd.length, skipped: incoming.length - toAdd.length }
+}
+
 // ── Clear helpers ─────────────────────────────────────────────────────────────
 
 export function clearStories(): void {

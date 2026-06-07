@@ -11,6 +11,8 @@ import {
   setWKCacheBuiltAt,
   getWKCacheCount,
   getWKCacheSize,
+  exportStories,
+  importStories,
 } from "../lib/storage";
 import { buildWKSubjectCache } from "../lib/wanikani";
 import type { AIProvider } from "../types";
@@ -163,6 +165,8 @@ export default function Settings() {
   const [buildError, setBuildError] = useState<string | null>(null);
   const [wkCacheCount, setWkCacheCount] = useState(0);
   const [wkCacheSize, setWkCacheSize] = useState(0);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const sizes = useMemo(() => getStorageSizes(), [cacheVersion]);
 
@@ -533,6 +537,91 @@ export default function Settings() {
           )}
         </Button>
       </Form>
+
+      {/* Data Transfer */}
+      <div className="section-card p-4 d-flex flex-column gap-3 mt-4">
+        <h2
+          className="small fw-semibold text-secondary text-uppercase mb-0"
+          style={{ letterSpacing: "0.08em" }}
+        >
+          Data Transfer
+        </h2>
+
+        <div className="d-flex align-items-center justify-content-between gap-3">
+          <div>
+            <p className="small fw-medium text-body mb-0">Export stories</p>
+            <p className="small text-secondary mb-0">
+              Download all stories as a JSON file.{" "}
+              {sizes.stories > 0
+                ? `${formatBytes(sizes.stories)} · ready to export`
+                : "No stories yet"}
+            </p>
+          </div>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={sizes.stories === 0}
+            onClick={() => exportStories()}
+          >
+            Export JSON
+          </Button>
+        </div>
+
+        <hr className="my-0" />
+
+        <div className="d-flex flex-column gap-2">
+          <div className="d-flex align-items-center justify-content-between gap-3">
+            <div>
+              <p className="small fw-medium text-body mb-0">Import stories</p>
+              <p className="small text-secondary mb-0">
+                Merge stories from a JSON export. Duplicates are skipped.
+              </p>
+            </div>
+            <Button
+              variant="outline-primary"
+              size="sm"
+              className="flex-shrink-0"
+              onClick={() => document.getElementById("import-file-input")?.click()}
+            >
+              Import JSON
+            </Button>
+            <input
+              id="import-file-input"
+              type="file"
+              accept=".json,application/json"
+              className="d-none"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                setImportResult(null);
+                setImportError(null);
+                try {
+                  const result = await importStories(file);
+                  setImportResult(result);
+                  setCacheVersion((v) => v + 1);
+                  setTimeout(() => setImportResult(null), 4000);
+                } catch {
+                  setImportError("Invalid file — please use a nihongo-story export.");
+                  setTimeout(() => setImportError(null), 4000);
+                }
+              }}
+            />
+          </div>
+          {importResult && (
+            <Alert variant="success" className="py-2 px-3 small mb-0">
+              {importResult.imported} stor{importResult.imported === 1 ? "y" : "ies"} imported
+              {importResult.skipped > 0 && `, ${importResult.skipped} already existed`}.
+            </Alert>
+          )}
+          {importError && (
+            <Alert variant="danger" className="py-2 px-3 small mb-0">
+              {importError}
+            </Alert>
+          )}
+        </div>
+      </div>
 
       {/* Danger Zone */}
       <div
