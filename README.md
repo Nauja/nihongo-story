@@ -2,6 +2,12 @@
 
 Web app that generates short Japanese stories on any theme you choose, targeting your current proficiency (JLPT N5–N1 or WaniKani levels). Stories come with furigana, clickable vocabulary definitions, and optional WaniKani kanji details — making it easy to read above your comfort zone without a dictionary.
 
+## Demo
+
+The web app runs entirely in your browser — no API key or generated stories are ever uploaded.
+
+**https://nauja.github.io/nihongo-story**
+
 ## Why
 
 WaniKani teaches kanji and vocabulary through mnemonics and stories — but when you move on to reading real Japanese content, that context is gone. Tools like Yomitan can look up words on the fly, but they don't surface the mnemonics or level data you already learned. WaniKani Kanji Highlighter does show that WaniKani info, but as a browser extension it can't be installed on mobile unless you use Kiwi browser. Finding material at the right level is its own challenge: too easy and you don't progress, too hard and it's discouraging.
