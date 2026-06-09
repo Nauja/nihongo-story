@@ -13,6 +13,8 @@ import {
   getWKCacheSize,
   exportStories,
   importStories,
+  exportConfig,
+  importConfig,
 } from "../lib/storage";
 import { buildWKSubjectCache } from "../lib/wanikani";
 import type { AIProvider } from "../types";
@@ -165,8 +167,15 @@ export default function Settings() {
   const [buildError, setBuildError] = useState<string | null>(null);
   const [wkCacheCount, setWkCacheCount] = useState(0);
   const [wkCacheSize, setWkCacheSize] = useState(0);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    skipped: number;
+  } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [configImportDone, setConfigImportDone] = useState(false);
+  const [configImportError, setConfigImportError] = useState<string | null>(
+    null,
+  );
 
   const sizes = useMemo(() => getStorageSizes(), [cacheVersion]);
 
@@ -315,14 +324,17 @@ export default function Settings() {
                     setSettings((s) => ({ ...s, geminiModel: e.target.value }))
                   }
                 >
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (default)</option>
+                  <option value="gemini-2.5-flash">
+                    Gemini 2.5 Flash (default)
+                  </option>
                   <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                   <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                   <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                   <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                 </Form.Select>
                 <Form.Text className="text-secondary">
-                  Flash models are faster and free-tier friendly; Pro models offer higher quality.
+                  Flash models are faster and free-tier friendly; Pro models
+                  offer higher quality.
                 </Form.Text>
               </Form.Group>
             </>
@@ -549,6 +561,83 @@ export default function Settings() {
 
         <div className="d-flex align-items-center justify-content-between gap-3">
           <div>
+            <p className="small fw-medium text-body mb-0">Export config</p>
+            <p className="small text-secondary mb-0">
+              Download AI provider settings, WaniKani key, and theme. API keys
+              are encrypted.
+            </p>
+          </div>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            className="flex-shrink-0"
+            onClick={() => exportConfig()}
+          >
+            Export JSON
+          </Button>
+        </div>
+
+        <hr className="my-0" />
+
+        <div className="d-flex flex-column gap-2">
+          <div className="d-flex align-items-center justify-content-between gap-3">
+            <div>
+              <p className="small fw-medium text-body mb-0">Import config</p>
+              <p className="small text-secondary mb-0">
+                Restore settings from a config export. Existing settings will be
+                overwritten.
+              </p>
+            </div>
+            <Button
+              variant="outline-primary"
+              size="sm"
+              className="flex-shrink-0"
+              onClick={() =>
+                document.getElementById("import-config-input")?.click()
+              }
+            >
+              Import JSON
+            </Button>
+            <input
+              id="import-config-input"
+              type="file"
+              accept=".json,application/json"
+              className="d-none"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                setConfigImportDone(false);
+                setConfigImportError(null);
+                try {
+                  await importConfig(file);
+                  setConfigImportDone(true);
+                  setTimeout(() => window.location.reload(), 800);
+                } catch {
+                  setConfigImportError(
+                    "Invalid file — please use a nihongo-config export.",
+                  );
+                  setTimeout(() => setConfigImportError(null), 4000);
+                }
+              }}
+            />
+          </div>
+          {configImportDone && (
+            <Alert variant="success" className="py-2 px-3 small mb-0">
+              Settings imported.
+            </Alert>
+          )}
+          {configImportError && (
+            <Alert variant="danger" className="py-2 px-3 small mb-0">
+              {configImportError}
+            </Alert>
+          )}
+        </div>
+
+        <hr className="my-0" />
+
+        <div className="d-flex align-items-center justify-content-between gap-3">
+          <div>
             <p className="small fw-medium text-body mb-0">Export stories</p>
             <p className="small text-secondary mb-0">
               Download all stories as a JSON file.{" "}
@@ -582,7 +671,9 @@ export default function Settings() {
               variant="outline-primary"
               size="sm"
               className="flex-shrink-0"
-              onClick={() => document.getElementById("import-file-input")?.click()}
+              onClick={() =>
+                document.getElementById("import-file-input")?.click()
+              }
             >
               Import JSON
             </Button>
@@ -603,7 +694,9 @@ export default function Settings() {
                   setCacheVersion((v) => v + 1);
                   setTimeout(() => setImportResult(null), 4000);
                 } catch {
-                  setImportError("Invalid file — please use a nihongo-story export.");
+                  setImportError(
+                    "Invalid file — please use a nihongo-story export.",
+                  );
                   setTimeout(() => setImportError(null), 4000);
                 }
               }}
@@ -611,8 +704,11 @@ export default function Settings() {
           </div>
           {importResult && (
             <Alert variant="success" className="py-2 px-3 small mb-0">
-              {importResult.imported} stor{importResult.imported === 1 ? "y" : "ies"} imported
-              {importResult.skipped > 0 && `, ${importResult.skipped} already existed`}.
+              {importResult.imported} stor
+              {importResult.imported === 1 ? "y" : "ies"} imported
+              {importResult.skipped > 0 &&
+                `, ${importResult.skipped} already existed`}
+              .
             </Alert>
           )}
           {importError && (
@@ -713,8 +809,8 @@ export default function Settings() {
             ) : (
               <div className="d-flex flex-column gap-2">
                 <p className="small text-danger mb-0 fw-medium">
-                  ⚠ This will clear the WaniKani lookup cache. Your API key
-                  will not be affected.
+                  ⚠ This will clear the WaniKani lookup cache. Your API key will
+                  not be affected.
                 </p>
                 <div className="d-flex gap-2">
                   <Button
@@ -742,7 +838,10 @@ export default function Settings() {
                 </div>
               </div>
             )}
-            <hr className="my-0" style={{ borderColor: "rgba(239,68,68,0.2)" }} />
+            <hr
+              className="my-0"
+              style={{ borderColor: "rgba(239,68,68,0.2)" }}
+            />
           </>
         )}
 

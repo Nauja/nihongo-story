@@ -223,6 +223,92 @@ export async function importStories(file: File): Promise<{ imported: number; ski
   return { imported: toAdd.length, skipped: incoming.length - toAdd.length }
 }
 
+// ── Config Export / Import ────────────────────────────────────────────────────
+
+const _CFG_KEY  = 'nihongo-story-config-v1'
+const _CFG_SALT = 'nihongo-story-salt-v1'
+
+async function _deriveKey(): Promise<CryptoKey> {
+  const enc = new TextEncoder()
+  const material = await crypto.subtle.importKey('raw', enc.encode(_CFG_KEY), { name: 'PBKDF2' }, false, ['deriveKey'])
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode(_CFG_SALT), iterations: 100_000, hash: 'SHA-256' },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  )
+}
+
+async function _encrypt(value: string, key: CryptoKey): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const enc = new TextEncoder()
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(value))
+  const buf = new Uint8Array(12 + cipher.byteLength)
+  buf.set(iv)
+  buf.set(new Uint8Array(cipher), 12)
+  return btoa(String.fromCharCode(...buf))
+}
+
+async function _decrypt(encoded: string, key: CryptoKey): Promise<string> {
+  const buf = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0))
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12))
+  return new TextDecoder().decode(plain)
+}
+
+export async function exportConfig(): Promise<void> {
+  const s = getSettings()
+  const key = await _deriveKey()
+  const out: Record<string, unknown> = {
+    version: 1,
+    provider: s.provider,
+    geminiModel: s.geminiModel,
+    ollamaBaseUrl: s.ollamaBaseUrl,
+    ollamaModel: s.ollamaModel,
+    wanikaniPopupMode: s.wanikaniPopupMode,
+    wanikaniLevelColors: s.wanikaniLevelColors,
+    showFurigana: s.showFurigana,
+    ttsVolume: s.ttsVolume,
+    theme: s.theme,
+  }
+  if (s.claudeApiKey)   out.claudeApiKey   = await _encrypt(s.claudeApiKey, key)
+  if (s.geminiApiKey)   out.geminiApiKey   = await _encrypt(s.geminiApiKey, key)
+  if (s.wanikaniApiKey) out.wanikaniApiKey = await _encrypt(s.wanikaniApiKey, key)
+
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `nihongo-config-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function importConfig(file: File): Promise<void> {
+  const data = JSON.parse(await file.text())
+  if (data?.version !== 1 || !data.theme) throw new Error('Invalid config file')
+
+  const key = await _deriveKey()
+  const s = getSettings()
+
+  if (data.provider)                          s.provider           = data.provider
+  if (data.theme)                             s.theme              = data.theme
+  if (data.geminiModel)                       s.geminiModel        = data.geminiModel
+  if (data.ollamaBaseUrl)                     s.ollamaBaseUrl      = data.ollamaBaseUrl
+  if (data.ollamaModel)                       s.ollamaModel        = data.ollamaModel
+  if (data.wanikaniPopupMode)                 s.wanikaniPopupMode  = data.wanikaniPopupMode
+  if (data.wanikaniLevelColors !== undefined) s.wanikaniLevelColors = data.wanikaniLevelColors
+  if (data.showFurigana !== undefined)        s.showFurigana       = data.showFurigana
+  if (data.ttsVolume !== undefined)           s.ttsVolume          = data.ttsVolume
+
+  if (data.claudeApiKey)   s.claudeApiKey   = await _decrypt(data.claudeApiKey, key)
+  if (data.geminiApiKey)   s.geminiApiKey   = await _decrypt(data.geminiApiKey, key)
+  if (data.wanikaniApiKey) s.wanikaniApiKey = await _decrypt(data.wanikaniApiKey, key)
+
+  saveSettings(s)
+  document.documentElement.setAttribute('data-bs-theme', s.theme)
+}
+
 // ── Clear helpers ─────────────────────────────────────────────────────────────
 
 export function clearStories(): void {

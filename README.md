@@ -61,6 +61,7 @@ The reader displays the Japanese text with furigana (reading hints) above kanji.
 
 - Toggle furigana on/off with the switch in the toolbar or by pressing **Tab**
 - Use the **play/pause/stop** controls in the toolbar to listen to the story read aloud via the Web Speech API (Japanese voice, 0.9× speed). The progress bar shows the current line — click any position to jump to it. The active line is highlighted during playback.
+- Use the **volume slider** in the toolbar to adjust playback volume.
 - If a WaniKani API key is configured, hover or click any highlighted word to open a popup with its meanings, readings, and mnemonics pulled from WaniKani. Click outside to close.
 
 ## Library
@@ -89,7 +90,13 @@ Choose one of three providers in the Settings page:
 | **Claude** (Anthropic) | Paid (~$0.003/story) | API key from [console.anthropic.com](https://console.anthropic.com/) |
 | **Ollama** | Free, runs locally | [ollama.com](https://ollama.com) + `ollama pull qwen2.5:7b` |
 
+For Gemini, you can also select the model version in Settings (Flash variants are faster and use less quota; Pro variants produce higher quality output).
+
 For Ollama, you also set the base URL (default: `http://localhost:11434`) and the model name (recommended: `qwen2.5:7b` for speed, `qwen2.5:14b` for better quality).
+
+### Appearance
+
+The Settings page has a light/dark theme toggle. The preference is saved to localStorage.
 
 ### WaniKani (optional)
 
@@ -97,4 +104,13 @@ Paste your WaniKani personal access token (found in [account settings](https://w
 
 - Hover popups on any word in a story, showing meanings, readings, and mnemonics from WaniKani
 - Your WaniKani username and level displayed in the app
+
+### Data transfer
+
+The Settings page lets you back up and restore your data:
+
+- **Export config** — downloads your settings (API keys, provider, WaniKani token) as an encrypted file protected by a password you choose.
+- **Import config** — restores settings from an encrypted export file using the password set at export time.
+- **Export stories** — downloads all your stories as a `.json` file. Useful for moving to another device.
+- **Import stories** — loads stories from a previously exported file; duplicates (matched by ID) are skipped automatically.
 
