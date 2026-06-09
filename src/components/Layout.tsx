@@ -38,7 +38,9 @@ export default function Layout() {
   const [hasWkKey, setHasWkKey] = useState(
     () => !!getSettings().wanikaniApiKey,
   );
+  const [mobileNavExpanded, setMobileNavExpanded] = useState(false);
   const gearRef = useRef<HTMLDivElement>(null);
+  const mobileGearRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const { wanikaniApiKey } = getSettings();
@@ -51,7 +53,10 @@ export default function Layout() {
   useEffect(() => {
     if (!showGearPopup) return;
     const handleMouseDown = (e: MouseEvent) => {
-      if (gearRef.current && !gearRef.current.contains(e.target as Node)) {
+      if (
+        gearRef.current && !gearRef.current.contains(e.target as Node) &&
+        mobileGearRef.current && !mobileGearRef.current.contains(e.target as Node)
+      ) {
         setShowGearPopup(false);
       }
     };
@@ -83,6 +88,109 @@ export default function Layout() {
     window.dispatchEvent(new CustomEvent("nihongo-settings-changed"));
     setPopupMode(value);
   }
+
+  const gearPopupContent = showGearPopup && (
+    <div
+      className="position-absolute end-0 mt-1 p-3 rounded shadow"
+      style={{
+        top: "100%",
+        minWidth: 260,
+        zIndex: 1050,
+        background: "var(--bs-body-bg)",
+        border: "1px solid var(--bs-border-color)",
+      }}
+    >
+      <div className="d-flex align-items-center justify-content-between mb-2">
+        <div className="d-flex flex-column">
+          <span style={{ fontSize: "0.85rem" }}>Furigana</span>
+          <span style={{ fontSize: "0.72rem", opacity: 0.6 }}>
+            Show reading aids above kanji
+          </span>
+        </div>
+        <div className="form-check form-switch mb-0">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            role="switch"
+            checked={furigana}
+            onChange={(e) =>
+              handleToggle("showFurigana", e.target.checked)
+            }
+          />
+        </div>
+      </div>
+      <div
+        className="mt-3 pt-3"
+        style={{ borderTop: "1px solid var(--bs-border-color)" }}
+      >
+        <span
+          style={{
+            fontSize: "0.72rem",
+            opacity: 0.5,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          WaniKani
+        </span>
+        {!hasWkKey && (
+          <div className="mt-2 mb-2">
+            <small className="text-secondary">
+              <NavLink to="/settings" className="text-primary">
+                Add WaniKani key
+              </NavLink>
+            </small>
+          </div>
+        )}
+        <div style={!hasWkKey ? { opacity: 0.45, pointerEvents: "none" } : undefined}>
+          <div className="d-flex align-items-center justify-content-between mt-2 mb-2">
+            <div className="d-flex flex-column">
+              <span style={{ fontSize: "0.85rem" }}>Level colors</span>
+              <span style={{ fontSize: "0.72rem", opacity: 0.6 }}>
+                Underline words by WaniKani level
+              </span>
+            </div>
+            <div className="form-check form-switch mb-0">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                checked={hasWkKey && levelColors}
+                disabled={!hasWkKey}
+                onChange={(e) =>
+                  handleToggle("wanikaniLevelColors", e.target.checked)
+                }
+              />
+            </div>
+          </div>
+          <div className="d-flex align-items-center justify-content-between">
+            <div className="d-flex flex-column">
+              <span style={{ fontSize: "0.85rem" }}>
+                Advanced popup
+              </span>
+              <span style={{ fontSize: "0.72rem", opacity: 0.6 }}>
+                Shows WaniKani mnemonics; Simple is compact
+              </span>
+            </div>
+            <div className="form-check form-switch mb-0">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                checked={hasWkKey && popupMode === "advanced"}
+                disabled={!hasWkKey}
+                onChange={(e) =>
+                  handlePopupMode(
+                    e.target.checked ? "advanced" : "simple",
+                  )
+                }
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-vh-100 d-flex flex-column">
@@ -131,108 +239,7 @@ export default function Layout() {
             >
               <i className="bi bi-gear-fill" />
             </button>
-            {showGearPopup && (
-              <div
-                className="position-absolute end-0 mt-1 p-3 rounded shadow"
-                style={{
-                  top: "100%",
-                  minWidth: 260,
-                  zIndex: 1050,
-                  background: "var(--bs-body-bg)",
-                  border: "1px solid var(--bs-border-color)",
-                }}
-              >
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="d-flex flex-column">
-                    <span style={{ fontSize: "0.85rem" }}>Furigana</span>
-                    <span style={{ fontSize: "0.72rem", opacity: 0.6 }}>
-                      Show reading aids above kanji
-                    </span>
-                  </div>
-                  <div className="form-check form-switch mb-0">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      role="switch"
-                      checked={furigana}
-                      onChange={(e) =>
-                        handleToggle("showFurigana", e.target.checked)
-                      }
-                    />
-                  </div>
-                </div>
-                <div
-                  className="mt-3 pt-3"
-                  style={{ borderTop: "1px solid var(--bs-border-color)" }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.72rem",
-                      opacity: 0.5,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    WaniKani
-                  </span>
-                  {!hasWkKey && (
-                    <div className="mt-2 mb-2">
-                      <small className="text-secondary">
-                        <NavLink to="/settings" className="text-primary">
-                          Add WaniKani key
-                        </NavLink>
-                      </small>
-                    </div>
-                  )}
-                  <div style={!hasWkKey ? { opacity: 0.45, pointerEvents: "none" } : undefined}>
-                  <div className="d-flex align-items-center justify-content-between mt-2 mb-2">
-                    <div className="d-flex flex-column">
-                      <span style={{ fontSize: "0.85rem" }}>Level colors</span>
-                      <span style={{ fontSize: "0.72rem", opacity: 0.6 }}>
-                        Underline words by WaniKani level
-                      </span>
-                    </div>
-                    <div className="form-check form-switch mb-0">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        role="switch"
-                        checked={hasWkKey && levelColors}
-                        disabled={!hasWkKey}
-                        onChange={(e) =>
-                          handleToggle("wanikaniLevelColors", e.target.checked)
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div className="d-flex flex-column">
-                      <span style={{ fontSize: "0.85rem" }}>
-                        Advanced popup
-                      </span>
-                      <span style={{ fontSize: "0.72rem", opacity: 0.6 }}>
-                        Shows WaniKani mnemonics; Simple is compact
-                      </span>
-                    </div>
-                    <div className="form-check form-switch mb-0">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        role="switch"
-                        checked={hasWkKey && popupMode === "advanced"}
-                        disabled={!hasWkKey}
-                        onChange={(e) =>
-                          handlePopupMode(
-                            e.target.checked ? "advanced" : "simple",
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {gearPopupContent}
           </div>
           {wkUser && (
             <div className="d-flex align-items-center gap-2 ms-3">
@@ -259,6 +266,9 @@ export default function Layout() {
       <Navbar
         className="navbar-dark-custom d-md-none sticky-top py-2"
         as="header"
+        expand={false}
+        expanded={mobileNavExpanded}
+        onToggle={setMobileNavExpanded}
       >
         <Container fluid>
           <Navbar.Brand className="d-flex align-items-center gap-2">
@@ -268,32 +278,76 @@ export default function Layout() {
                 日本語ストーリー
               </span>
               <span style={{ fontSize: "0.65em", opacity: 0.7 }}>
-                Nohingo Story
+                Nihongo Story
               </span>
             </span>
           </Navbar.Brand>
-          {wkUser && (
-            <div className="d-flex align-items-center gap-2 ms-auto">
-              <div className="wk-avatar wk-avatar-sm">
-                {wkUser.username[0].toUpperCase()}
-              </div>
-              <span className="fw-semibold" style={{ fontSize: "0.8rem" }}>
-                Lv. {wkUser.level}
-              </span>
-            </div>
-          )}
+          <div
+            className="position-relative me-1 ms-auto"
+            ref={mobileGearRef}
+          >
+            <button
+              className="btn btn-link text-secondary p-2"
+              onClick={showGearPopup ? () => setShowGearPopup(false) : openPopup}
+              style={{ fontSize: "1.1rem", lineHeight: 1 }}
+              title="Display settings"
+            >
+              <i className="bi bi-gear-fill" />
+            </button>
+            {gearPopupContent}
+          </div>
+          <Navbar.Toggle
+            aria-controls="mobile-nav-collapse"
+            className="border-0 p-1"
+          />
+          <Navbar.Collapse id="mobile-nav-collapse">
+            <Nav className="py-2 border-top mt-2">
+              {wkUser && (
+                <div className="d-flex align-items-center gap-2 px-2 py-2 border-bottom mb-2">
+                  <div className="wk-avatar">
+                    {wkUser.username[0].toUpperCase()}
+                  </div>
+                  <div className="d-flex flex-column lh-1">
+                    <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>
+                      {wkUser.username}
+                    </span>
+                    <span className="text-secondary" style={{ fontSize: "0.75rem" }}>
+                      Lv. {wkUser.level}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {navItems.map(({ to, label, english, icon, exact }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={exact}
+                  onClick={() => setMobileNavExpanded(false)}
+                  className={({ isActive }) =>
+                    `nav-link d-flex align-items-center gap-3 px-2 py-2 rounded ${isActive ? "nav-link-active" : "text-secondary"}`
+                  }
+                >
+                  <span style={{ fontSize: "1.25rem", lineHeight: 1 }}>{icon}</span>
+                  <span className="d-flex flex-column lh-1">
+                    <span className="font-japanese">{label}</span>
+                    <span style={{ fontSize: "0.65em", opacity: 0.7 }}>{english}</span>
+                  </span>
+                </NavLink>
+              ))}
+            </Nav>
+          </Navbar.Collapse>
         </Container>
       </Navbar>
 
       {/* Main content */}
-      <main className="flex-grow-1 overflow-y-auto pb-5 pb-md-4">
+      <main className="flex-grow-1 overflow-y-auto pb-4">
         <Container style={{ maxWidth: 768 }} className="px-3 py-4">
           <Outlet />
         </Container>
       </main>
 
       {/* Footer */}
-      <footer className="d-none d-md-flex justify-content-center align-items-center py-3 border-top">
+      <footer className="d-flex justify-content-center align-items-center py-3 border-top">
         <a
           href="https://github.com/Nauja/nihongo-story"
           target="_blank"
@@ -306,16 +360,6 @@ export default function Layout() {
         </a>
       </footer>
 
-      {/* Mobile bottom nav */}
-      <nav className="bottom-nav d-md-none">
-        {navItems.map(({ to, label, english, icon, exact }) => (
-          <NavLink key={to} to={to} end={exact}>
-            <span style={{ fontSize: "1.25rem", lineHeight: 1 }}>{icon}</span>
-            <span className="font-japanese">{label}</span>
-            <span style={{ fontSize: "0.65em", opacity: 0.7 }}>{english}</span>
-          </NavLink>
-        ))}
-      </nav>
     </div>
   );
 }
