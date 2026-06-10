@@ -1,4 +1,8 @@
-# nihongo-story
+# 話 Nihongo Story
+
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![GitHub Pages](https://img.shields.io/badge/deployed-GitHub%20Pages-blue?logo=github)](https://nauja.github.io/nihongo-story)
+
 
 Web app that generates short Japanese stories on any theme you choose, targeting your current proficiency (JLPT N5–N1 or WaniKani levels). Stories come with furigana, clickable vocabulary definitions, and optional WaniKani kanji details — making it easy to read above your comfort zone without a dictionary.
 
@@ -113,4 +117,12 @@ The Settings page lets you back up and restore your data:
 - **Import config** — restores settings from an encrypted export file using the password set at export time.
 - **Export stories** — downloads all your stories as a `.json` file. Useful for moving to another device.
 - **Import stories** — loads stories from a previously exported file; duplicates (matched by ID) are skipped automatically.
+
+## Feedback & Support
+
+Feedback, bug reports, and feature ideas are very welcome — feel free to [open an issue](https://github.com/Nauja/nihongo-story/issues) on GitHub.
+
+If you find the app useful and want to support its development:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/P8H4213C8K)
 
