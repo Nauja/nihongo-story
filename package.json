@@ -7,10 +7,17 @@
     "dev": "vite --port 3000",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:android": "npm run cap:sync && npx cap open android",
+    "cap:ios": "npm run cap:sync && npx cap open ios",
+    "cap:run:android": "npm run cap:sync && npx cap run android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@google/generative-ai": "^0.24.1",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
@@ -20,6 +27,8 @@
     "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
