@@ -29,62 +29,75 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
     [onWordClick],
   )
 
+  // Render a segment's characters. When `perKanji` is true, each known kanji
+  // becomes its own click target; otherwise characters are only colored.
+  const renderChars = (seg: Segment, perKanji: boolean) =>
+    [...seg.text].map((char, j) => {
+      const level = wkWordSets?.kanji.get(char)
+      const isKnownKanji = level !== undefined
+      const underline =
+        isKnownKanji && userLevel != null
+          ? {
+              textDecoration: 'underline',
+              textDecorationColor: getWKColor(level, userLevel, 'rgba(232, 0, 170, 0.45)'),
+              textUnderlineOffset: '4px',
+            }
+          : undefined
+      if (perKanji && isKnownKanji) {
+        const isSelected = char === selectedWord
+        return (
+          <span
+            key={j}
+            style={{
+              ...underline,
+              cursor: 'pointer',
+              background: isSelected ? 'var(--bs-warning-bg-subtle)' : undefined,
+              borderRadius: isSelected ? 2 : undefined,
+            }}
+            onClick={(e) => handleClick(e, char)}
+          >
+            {char}
+          </span>
+        )
+      }
+      if (underline) return <span key={j} style={underline}>{char}</span>
+      return char
+    })
+
   return (
     <span className="font-japanese" style={{ lineHeight: 'inherit' }}>
       {resolvedSegments.map((seg, i) => {
-        if (seg.isInteractive && seg.reading) {
-          const hasVocab = wkWordSets != null && wkWordSets.vocab.has(seg.text)
-
-          const hasKanji = wkWordSets != null && [...seg.text].some(c => wkWordSets!.kanji.has(c))
-          const active = hasVocab || hasKanji
-          const isSelected = seg.text === selectedWord
-          return (
-            <ruby
-              key={i}
-              style={{
-                cursor: active ? 'pointer' : 'default',
-                background: isSelected ? 'var(--bs-warning-bg-subtle)' : undefined,
-                borderRadius: isSelected ? 2 : undefined,
-              }}
-              onClick={active ? (e) => handleClick(e, seg.text) : undefined}
-            >
-              {[...seg.text].map((char, j) => {
-                const level = wkWordSets?.kanji.get(char)
-                if (level === undefined || userLevel == null) return char
-                const color = getWKColor(level, userLevel, 'rgba(232, 0, 170, 0.45)')
-                return <span key={j} style={{ textDecoration: 'underline', textDecorationColor: color, textUnderlineOffset: '4px' }}>{char}</span>
-              })}
-              <rt
-                style={{ fontSize: '0.55em', opacity: showFurigana ? 1 : 0, userSelect: showFurigana ? 'auto' : 'none' }}
-              >
-                {seg.reading}
-              </rt>
-            </ruby>
-          )
-        }
-
         if (seg.isInteractive) {
-          const hasVocab = wkWordSets != null && wkWordSets.vocab.has(seg.text)
+          const hasVocab = wkWordSets?.vocab.has(seg.text) ?? false
+          const anyKnownKanji = [...seg.text].some(c => wkWordSets?.kanji.has(c) ?? false)
+          // Whole-segment click only for known vocabulary; otherwise per-kanji.
+          const wholeClickable = hasVocab
+          const perKanji = !hasVocab && anyKnownKanji
+          const isSelected = wholeClickable && seg.text === selectedWord
 
-          const hasKanji = wkWordSets != null && [...seg.text].some(c => wkWordSets!.kanji.has(c))
-          const active = hasVocab || hasKanji
-          const isSelected = seg.text === selectedWord
+          const wrapperStyle = {
+            cursor: wholeClickable ? ('pointer' as const) : ('default' as const),
+            background: isSelected ? 'var(--bs-warning-bg-subtle)' : undefined,
+            borderRadius: isSelected ? 2 : undefined,
+          }
+          const wrapperOnClick = wholeClickable ? (e: React.MouseEvent) => handleClick(e, seg.text) : undefined
+
+          if (seg.reading) {
+            return (
+              <ruby key={i} style={wrapperStyle} onClick={wrapperOnClick}>
+                {renderChars(seg, perKanji)}
+                <rt
+                  style={{ fontSize: '0.55em', opacity: showFurigana ? 1 : 0, userSelect: showFurigana ? 'auto' : 'none' }}
+                >
+                  {seg.reading}
+                </rt>
+              </ruby>
+            )
+          }
+
           return (
-            <span
-              key={i}
-              style={{
-                cursor: active ? 'pointer' : 'default',
-                background: isSelected ? 'var(--bs-warning-bg-subtle)' : undefined,
-                borderRadius: isSelected ? 2 : undefined,
-              }}
-              onClick={active ? (e) => handleClick(e, seg.text) : undefined}
-            >
-              {[...seg.text].map((char, j) => {
-                const level = wkWordSets?.kanji.get(char)
-                if (level === undefined || userLevel == null) return char
-                const color = getWKColor(level, userLevel, 'rgba(232, 0, 170, 0.45)')
-                return <span key={j} style={{ textDecoration: 'underline', textDecorationColor: color, textUnderlineOffset: '4px' }}>{char}</span>
-              })}
+            <span key={i} style={wrapperStyle} onClick={wrapperOnClick}>
+              {renderChars(seg, perKanji)}
             </span>
           )
         }

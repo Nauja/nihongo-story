@@ -12,6 +12,7 @@ interface Props {
   simpleMode?: boolean;
   onToggleMode?: () => void;
   onClose?: () => void;
+  onLookup?: (word: string) => void;
 }
 
 const WK_PATH: Record<string, string> = {
@@ -58,9 +59,11 @@ function parseMnemonic(text: string): string {
 function SubjectTile({
   subject,
   theme,
+  onLookup,
 }: {
   subject: WaniKaniSubject;
   theme: "radical" | "kanji" | "vocabulary";
+  onLookup?: (word: string) => void;
 }) {
   const char = subject.data.characters ?? subject.data.slug;
   const primaryMeaning =
@@ -87,14 +90,8 @@ function SubjectTile({
             background: "var(--subject-vocab-bg)",
           };
 
-  return (
-    <a
-      href={subjectUrl(subject)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="border rounded-2 p-1 text-center overflow-hidden d-block text-decoration-none"
-      style={borderStyle}
-    >
+  const inner = (
+    <>
       <div className="font-japanese fw-bold">{char}</div>
       {primaryReading && (
         <div
@@ -110,6 +107,39 @@ function SubjectTile({
       >
         {primaryMeaning}
       </div>
+    </>
+  );
+
+  // Kanji/vocab tiles navigate in-app; radicals (and slug-only tiles) link out.
+  const canLookup =
+    onLookup != null && theme !== "radical" && subject.data.characters != null;
+
+  if (canLookup) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onLookup!(subject.data.characters!);
+        }}
+        className="border rounded-2 p-1 text-center overflow-hidden d-block w-100 text-decoration-none"
+        style={borderStyle}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={subjectUrl(subject)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="border rounded-2 p-1 text-center overflow-hidden d-block text-decoration-none"
+      style={borderStyle}
+    >
+      {inner}
     </a>
   );
 }
@@ -174,6 +204,7 @@ function WaniKaniPopup({
   simpleMode,
   onToggleMode,
   onClose,
+  onLookup,
 }: Props) {
   const data = subject?.data;
 
@@ -480,7 +511,7 @@ function WaniKaniPopup({
                     }}
                   >
                     {components.map((s) => (
-                      <SubjectTile key={s.id} subject={s} theme="kanji" />
+                      <SubjectTile key={s.id} subject={s} theme="kanji" onLookup={onLookup} />
                     ))}
                   </div>
                 </Section>
@@ -525,7 +556,7 @@ function WaniKaniPopup({
                     }}
                   >
                     {similarKanji.map((s) => (
-                      <SubjectTile key={s.id} subject={s} theme="kanji" />
+                      <SubjectTile key={s.id} subject={s} theme="kanji" onLookup={onLookup} />
                     ))}
                   </div>
                 </Section>
@@ -541,7 +572,7 @@ function WaniKaniPopup({
                     }}
                   >
                     {vocabList.map((s) => (
-                      <SubjectTile key={s.id} subject={s} theme="vocabulary" />
+                      <SubjectTile key={s.id} subject={s} theme="vocabulary" onLookup={onLookup} />
                     ))}
                   </div>
                 </Section>

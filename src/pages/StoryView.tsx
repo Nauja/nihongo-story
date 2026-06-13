@@ -82,6 +82,9 @@ export default function StoryView() {
   const [activeVocabWord, setActiveVocabWord] = useState<string | null>(null);
   const activeVocabWordRef = useRef<string | null>(null);
   activeVocabWordRef.current = activeVocabWord;
+  const [activeVocabItem, setActiveVocabItem] = useState<string | null>(null);
+  const activeVocabItemRef = useRef<string | null>(null);
+  activeVocabItemRef.current = activeVocabItem;
   const [searchInput, setSearchInput] = useState("");
   const [searchWord, setSearchWord] = useState<string | null>(null);
   const playGenRef = useRef(0);
@@ -165,6 +168,7 @@ export default function StoryView() {
         clear();
       } else {
         setActiveVocabWord(null);
+        setActiveVocabItem(null);
         setSearchWord(null);
         setActivePanel({ lineIndex, word });
         setPopupMode(defaultPopupMode ?? "advanced");
@@ -175,16 +179,21 @@ export default function StoryView() {
   );
 
   const handleVocabClick = useCallback(
-    (word: string) => {
-      if (activeVocabWordRef.current === word) {
+    (itemWord: string, clicked: string) => {
+      if (
+        activeVocabItemRef.current === itemWord &&
+        activeVocabWordRef.current === clicked
+      ) {
+        setActiveVocabItem(null);
         setActiveVocabWord(null);
         clear();
       } else {
-        setActiveVocabWord(word);
+        setActiveVocabItem(itemWord);
+        setActiveVocabWord(clicked);
         setActivePanel(null);
         setSearchWord(null);
         setPopupMode(defaultPopupMode ?? "advanced");
-        lookup(word);
+        lookup(clicked);
       }
     },
     [lookup, clear, defaultPopupMode],
@@ -195,6 +204,7 @@ export default function StoryView() {
     if (!word) return;
     setActivePanel(null);
     setActiveVocabWord(null);
+    setActiveVocabItem(null);
     setSearchWord(word);
     setPopupMode(defaultPopupMode ?? "advanced");
     lookup(word);
@@ -566,6 +576,10 @@ export default function StoryView() {
                   prev === "simple" ? "advanced" : "simple",
                 )
               }
+              onLookup={(w) => {
+                setSearchWord(w);
+                lookup(w);
+              }}
               onClose={() => {
                 setSearchWord(null);
                 clear();
@@ -599,6 +613,7 @@ export default function StoryView() {
         onClick={() => {
           setActivePanel(null);
           setActiveVocabWord(null);
+          setActiveVocabItem(null);
           setSearchWord(null);
           clear();
         }}
@@ -650,6 +665,10 @@ export default function StoryView() {
                         prev === "simple" ? "advanced" : "simple",
                       )
                     }
+                    onLookup={(w) => {
+                      setActivePanel((p) => (p ? { ...p, word: w } : p));
+                      lookup(w);
+                    }}
                     onClose={() => {
                       setActivePanel(null);
                       clear();
@@ -723,11 +742,11 @@ export default function StoryView() {
                             (wanikaniLevelColors ?? true) ? wkUserLevel : null
                           }
                           selectedWord={
-                            activeVocabWord === item.word
-                              ? item.word
+                            activeVocabItem === item.word
+                              ? (activeVocabWord ?? undefined)
                               : undefined
                           }
-                          onWordClick={handleVocabClick}
+                          onWordClick={(w) => handleVocabClick(item.word, w)}
                         />
                       </span>
                       <small
@@ -742,10 +761,10 @@ export default function StoryView() {
                     </p>
                   </div>
                 </div>
-                {activeVocabWord === item.word && (
+                {activeVocabItem === item.word && (
                   <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                     <WaniKaniPopup
-                      word={activeVocabWord}
+                      word={activeVocabWord ?? item.word}
                       subject={subject}
                       relatedSubjects={relatedSubjects}
                       loading={loading}
@@ -757,7 +776,12 @@ export default function StoryView() {
                           prev === "simple" ? "advanced" : "simple",
                         )
                       }
+                      onLookup={(w) => {
+                        setActiveVocabWord(w);
+                        lookup(w);
+                      }}
                       onClose={() => {
+                        setActiveVocabItem(null);
                         setActiveVocabWord(null);
                         clear();
                       }}
