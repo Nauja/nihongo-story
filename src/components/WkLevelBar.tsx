@@ -17,11 +17,23 @@ interface Props {
   kanjiLevels?: Map<string, number> | null;
   className?: string;
   style?: CSSProperties;
+  selectedBucket?: number | null;
+  onSelectBucket?: (index: number) => void;
 }
 
-export default function WkLevelBar({ story, kanjiLevels, className, style }: Props) {
+export default function WkLevelBar({
+  story,
+  kanjiLevels,
+  className,
+  style,
+  selectedBucket,
+  onSelectBucket,
+}: Props) {
   const buckets = wkLevelDistribution(story, kanjiLevels);
   if (buckets.length === 0) return null;
+
+  const dimmed = (index: number) =>
+    selectedBucket != null && selectedBucket !== index;
 
   return (
     <div className={className} style={style}>
@@ -36,7 +48,9 @@ export default function WkLevelBar({ story, kanjiLevels, className, style }: Pro
         {buckets.map((b, i) => (
           <div
             key={b.index}
+            role="button"
             title={`Lv ${b.min}–${b.max} · ${b.count} kanji · ${Math.round(b.percent)}%`}
+            onClick={() => onSelectBucket?.(b.index)}
             style={{
               width: `${b.percent}%`,
               background: BUCKET_COLORS[b.index],
@@ -44,6 +58,9 @@ export default function WkLevelBar({ story, kanjiLevels, className, style }: Pro
                 i < buckets.length - 1
                   ? "inset -1px 0 0 var(--surface-1)"
                   : undefined,
+              cursor: "pointer",
+              opacity: dimmed(b.index) ? 0.3 : 1,
+              transition: "opacity 0.15s",
             }}
           />
         ))}
@@ -52,8 +69,16 @@ export default function WkLevelBar({ story, kanjiLevels, className, style }: Pro
         {buckets.map((b) => (
           <span
             key={b.index}
+            role="button"
             className="d-inline-flex align-items-center gap-1"
             title={`Lv ${b.min}–${b.max} · ${b.count} kanji · ${Math.round(b.percent)}%`}
+            onClick={() => onSelectBucket?.(b.index)}
+            style={{
+              cursor: "pointer",
+              opacity: dimmed(b.index) ? 0.3 : 1,
+              fontWeight: selectedBucket === b.index ? 600 : undefined,
+              transition: "opacity 0.15s",
+            }}
           >
             <span
               style={{

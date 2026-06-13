@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import type { Segment, WkWordSets } from '../types'
+import { bucketOf } from '../lib/wkLevels'
 
 interface Props {
   segments?: Segment[]
@@ -9,7 +10,10 @@ interface Props {
   userLevel?: number | null
   onWordClick?: (text: string) => void
   selectedWord?: string
+  selectedBucket?: number | null
 }
+
+const DIM_OPACITY = 0.3
 
 function getWKColor(itemLevel: number, userLevel: number | null | undefined, fallback: string): string {
   if (userLevel == null) return fallback
@@ -18,7 +22,7 @@ function getWKColor(itemLevel: number, userLevel: number | null | undefined, fal
   return 'rgba(239, 68, 68, 0.65)'
 }
 
-export default function FuriganaText({ segments, text, showFurigana = false, wkWordSets, userLevel, onWordClick, selectedWord }: Props) {
+export default function FuriganaText({ segments, text, showFurigana = false, wkWordSets, userLevel, onWordClick, selectedWord, selectedBucket }: Props) {
   const resolvedSegments: Segment[] = segments ?? [...(text ?? '')].map(char => ({ text: char, isInteractive: true }))
 
   const handleClick = useCallback(
@@ -28,6 +32,15 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
     },
     [onWordClick],
   )
+
+  // When a level bucket is selected, dim every character that is not a known
+  // kanji belonging to that bucket.
+  const isDimmed = (char: string) => {
+    if (selectedBucket == null) return false
+    const level = wkWordSets?.kanji.get(char)
+    return level === undefined || bucketOf(level) !== selectedBucket
+  }
+  const dimStyle = (char: string) => (isDimmed(char) ? { opacity: DIM_OPACITY } : undefined)
 
   // Render a segment's characters. When `perKanji` is true, each known kanji
   // becomes its own click target; otherwise characters are only colored.
@@ -43,6 +56,7 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
               textUnderlineOffset: '4px',
             }
           : undefined
+      const dim = dimStyle(char)
       if (perKanji && isKnownKanji) {
         const isSelected = char === selectedWord
         return (
@@ -50,6 +64,7 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
             key={j}
             style={{
               ...underline,
+              ...dim,
               cursor: 'pointer',
               background: isSelected ? 'var(--bs-warning-bg-subtle)' : undefined,
               borderRadius: isSelected ? 2 : undefined,
@@ -60,7 +75,7 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
           </span>
         )
       }
-      if (underline) return <span key={j} style={underline}>{char}</span>
+      if (underline || dim) return <span key={j} style={{ ...underline, ...dim }}>{char}</span>
       return char
     })
 
@@ -83,11 +98,13 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
           const wrapperOnClick = wholeClickable ? (e: React.MouseEvent) => handleClick(e, seg.text) : undefined
 
           if (seg.reading) {
+            const segMatches = [...seg.text].some((c) => !isDimmed(c))
+            const rtOpacity = showFurigana ? (segMatches ? 1 : DIM_OPACITY) : 0
             return (
               <ruby key={i} style={wrapperStyle} onClick={wrapperOnClick}>
                 {renderChars(seg, perKanji)}
                 <rt
-                  style={{ fontSize: '0.55em', opacity: showFurigana ? 1 : 0, userSelect: showFurigana ? 'auto' : 'none' }}
+                  style={{ fontSize: '0.55em', opacity: rtOpacity, userSelect: showFurigana ? 'auto' : 'none' }}
                 >
                   {seg.reading}
                 </rt>
@@ -102,7 +119,11 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
           )
         }
 
-        return <span key={i}>{seg.text}</span>
+        return (
+          <span key={i} style={selectedBucket != null ? { opacity: DIM_OPACITY } : undefined}>
+            {seg.text}
+          </span>
+        )
       })}
     </span>
   )

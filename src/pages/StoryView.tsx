@@ -101,6 +101,7 @@ export default function StoryView() {
   const currentLineRef = useRef(-1);
   currentLineRef.current = currentLine;
   const [wkWordSets, setWkWordSets] = useState<WkWordSets | null>(null);
+  const [selectedBucket, setSelectedBucket] = useState<number | null>(null);
   const [japaneseVoice, setJapaneseVoice] =
     useState<SpeechSynthesisVoice | null>(null);
 
@@ -640,6 +641,7 @@ export default function StoryView() {
                   showFurigana={showFurigana}
                   wkWordSets={wkWordSets}
                   userLevel={(wanikaniLevelColors ?? true) ? wkUserLevel : null}
+                  selectedBucket={selectedBucket}
                   onWordClick={(word) => handleWordClick(i, word)}
                   selectedWord={
                     activePanel?.lineIndex === i ? activePanel.word : undefined
@@ -686,6 +688,10 @@ export default function StoryView() {
         story={story}
         kanjiLevels={wkWordSets?.kanji}
         className="mb-4"
+        selectedBucket={selectedBucket}
+        onSelectBucket={(i) =>
+          setSelectedBucket((prev) => (prev === i ? null : i))
+        }
       />
 
       {/* English summary */}
@@ -741,6 +747,7 @@ export default function StoryView() {
                           userLevel={
                             (wanikaniLevelColors ?? true) ? wkUserLevel : null
                           }
+                          selectedBucket={selectedBucket}
                           selectedWord={
                             activeVocabItem === item.word
                               ? (activeVocabWord ?? undefined)
