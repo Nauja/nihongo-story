@@ -98,6 +98,32 @@ For Gemini, you can also select the model version in Settings (Flash variants ar
 
 For Ollama, you also set the base URL (default: `http://localhost:11434`) and the model name (recommended: `qwen2.5:7b` for speed, `qwen2.5:14b` for better quality).
 
+#### Using Ollama with the hosted site (CORS)
+
+By default Ollama only accepts browser requests coming from `localhost`. When you use the **hosted** build at `https://nauja.github.io/nihongo-story`, requests come from `https://nauja.github.io`, so Ollama blocks them with a CORS error. Fix it by starting Ollama with `OLLAMA_ORIGINS` set to allow that origin:
+
+- **Quick (any OS):**
+  ```sh
+  OLLAMA_ORIGINS="https://nauja.github.io" ollama serve
+  ```
+- **macOS (app):**
+  ```sh
+  launchctl setenv OLLAMA_ORIGINS "https://nauja.github.io"
+  ```
+  then quit and reopen Ollama.
+- **Linux (systemd):**
+  ```sh
+  systemctl edit ollama.service
+  ```
+  add under `[Service]`:
+  ```
+  Environment="OLLAMA_ORIGINS=https://nauja.github.io"
+  ```
+  then `sudo systemctl daemon-reload && sudo systemctl restart ollama`.
+- **Windows:** add a user environment variable `OLLAMA_ORIGINS=https://nauja.github.io`, then restart Ollama.
+
+`OLLAMA_ORIGINS=*` also works but lets **any** website reach your local Ollama, so allowing the specific origin is safer. (Running the app locally on `http://localhost` needs none of this.)
+
 ### Appearance
 
 The Settings page has a light/dark theme toggle. The preference is saved to localStorage.

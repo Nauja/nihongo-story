@@ -131,6 +131,23 @@ const LENGTH_INSTRUCTIONS: Record<number, string> = {
   5: "30–40 sentences (very long)",
 };
 
+// Ollama defaults to num_ctx=2048, which can't hold a long story rendered as
+// this app's verbose per-token JSON plus the system prompt — so it wraps up
+// after a few lines regardless of the requested length. Scale both the context
+// window (prompt + output) and the output cap (num_predict) with the length.
+interface OllamaBudget {
+  num_ctx: number;
+  num_predict: number;
+}
+
+const OLLAMA_LENGTH_BUDGET: Record<number, OllamaBudget> = {
+  1: { num_ctx: 2048, num_predict: 1024 },
+  2: { num_ctx: 4096, num_predict: 2048 },
+  3: { num_ctx: 6144, num_predict: 3072 },
+  4: { num_ctx: 8192, num_predict: 5120 },
+  5: { num_ctx: 12288, num_predict: 8192 },
+};
+
 function buildUserPrompt(params: GenerateParams): string {
   const lengthInstruction = LENGTH_INSTRUCTIONS[params.length] ?? LENGTH_INSTRUCTIONS[3];
   const themeInstruction = params.theme.trim()
@@ -138,7 +155,7 @@ function buildUserPrompt(params: GenerateParams): string {
     : `with a random, creative, and surprising theme of your own choosing`;
   return `Generate ${STORY_TYPE_LABELS[params.storyType]} ${themeInstruction}
 Target level: ${buildLevelInstruction(params.level)}
-Story length: ${lengthInstruction}`;
+REQUIRED length: ${lengthInstruction}. This is a hard requirement — write the full requested length and do not stop early.`;
 }
 
 async function generateStoryAnthropic(params: GenerateParams): Promise<Story> {
@@ -184,18 +201,36 @@ interface OllamaResponse {
 async function generateStoryOllama(params: GenerateParams): Promise<Story> {
   const baseUrl = params.ollamaBaseUrl.replace(/\/$/, "");
 
-  const res = await fetch(`${baseUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: params.ollamaModel,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(params) },
-      ],
-      stream: false,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: params.ollamaModel,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserPrompt(params) },
+        ],
+        stream: false,
+        format: "json",
+        options: OLLAMA_LENGTH_BUDGET[params.length] ?? OLLAMA_LENGTH_BUDGET[3],
+      }),
+    });
+  } catch {
+    // A CORS block or a connection failure rejects fetch with a TypeError
+    // before we ever get a Response, so it never reaches the !res.ok check below.
+    const origin = window.location.origin;
+    const onLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+      window.location.hostname,
+    );
+    const corsHint = onLocalhost
+      ? ""
+      : ` Because this site is hosted at ${origin}, this is almost certainly a CORS block — restart Ollama with OLLAMA_ORIGINS="${origin}" so it accepts requests from this page.`;
+    throw new Error(
+      `Could not reach Ollama at ${params.ollamaBaseUrl}.${corsHint} Otherwise, make sure Ollama is running.`,
+    );
+  }
 
   if (!res.ok) {
     throw new Error(

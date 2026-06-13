@@ -356,6 +356,17 @@ export default function Settings() {
                 </a>{" "}
                 then run: <code>ollama pull qwen2.5:7b</code>
               </Alert>
+              {!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(
+                window.location.hostname,
+              ) && (
+                <Alert variant="warning" className="small py-2 mb-0">
+                  This site is hosted at <code>{window.location.origin}</code>,
+                  so Ollama will reject its requests (CORS) unless you allow
+                  this origin. Start Ollama with{" "}
+                  <code>OLLAMA_ORIGINS="{window.location.origin}"</code> set,
+                  then restart it. See the README for per-OS instructions.
+                </Alert>
+              )}
               <TextField
                 label="Ollama Base URL"
                 value={settings.ollamaBaseUrl}
