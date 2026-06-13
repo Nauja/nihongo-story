@@ -1,25 +1,73 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "react-bootstrap";
-import { getStories, deleteStory, getSettings, getWKUser } from "../lib/storage";
+import {
+  getStories,
+  deleteStory,
+  getSettings,
+  getWKUser,
+} from "../lib/storage";
 import { lookupSubjectsBatch } from "../lib/wanikani";
 import { isCJK } from "../lib/wkLevels";
 import type { WkWordSets } from "../types";
 import StoryCard from "../components/StoryCard";
 
+const KOFI_SRC = "https://storage.ko-fi.com/cdn/widget/Widget_2.js";
+
+function KofiButton() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function render() {
+      const w = (window as any).kofiwidget2;
+      if (!w || !containerRef.current) return;
+      w.init("Support me on Ko-fi", "#72a4f2", "P8H4213C8K");
+      containerRef.current.innerHTML = w.getHTML();
+    }
+
+    if ((window as any).kofiwidget2) {
+      render();
+      return;
+    }
+
+    let script = document.querySelector<HTMLScriptElement>(
+      `script[src="${KOFI_SRC}"]`,
+    );
+    if (!script) {
+      script = document.createElement("script");
+      script.src = KOFI_SRC;
+      script.async = true;
+      document.body.appendChild(script);
+    }
+    script.addEventListener("load", render);
+    return () => script?.removeEventListener("load", render);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="d-flex justify-content-center"
+      style={{ marginTop: "5rem" }}
+    />
+  );
+}
+
 export default function Library() {
   const [stories, setStories] = useState(() => getStories());
   const [wkWordSets, setWkWordSets] = useState<WkWordSets | null>(null);
-  const [wkUserLevel] = useState<number | null>(() => getWKUser()?.level ?? null);
+  const [wkUserLevel] = useState<number | null>(
+    () => getWKUser()?.level ?? null,
+  );
   const { wanikaniApiKey } = getSettings();
   const [wanikaniLevelColors, setWanikaniLevelColors] = useState(
     () => getSettings().wanikaniLevelColors ?? true,
   );
 
   useEffect(() => {
-    const sync = () => setWanikaniLevelColors(getSettings().wanikaniLevelColors ?? true);
-    window.addEventListener('nihongo-settings-changed', sync);
-    return () => window.removeEventListener('nihongo-settings-changed', sync);
+    const sync = () =>
+      setWanikaniLevelColors(getSettings().wanikaniLevelColors ?? true);
+    window.addEventListener("nihongo-settings-changed", sync);
+    return () => window.removeEventListener("nihongo-settings-changed", sync);
   }, []);
 
   useEffect(() => {
@@ -33,16 +81,20 @@ export default function Library() {
       ),
     ];
     if (chars.length === 0) return;
-    lookupSubjectsBatch(chars, wanikaniApiKey).then((results) => {
-      const vocab = new Map<string, number>();
-      const kanji = new Map<string, number>();
-      for (const [char, subject] of Object.entries(results)) {
-        if (!subject) continue;
-        if (subject.object === "vocabulary") vocab.set(char, subject.data.level);
-        else if (subject.object === "kanji") kanji.set(char, subject.data.level);
-      }
-      setWkWordSets({ vocab, kanji });
-    }).catch(() => {});
+    lookupSubjectsBatch(chars, wanikaniApiKey)
+      .then((results) => {
+        const vocab = new Map<string, number>();
+        const kanji = new Map<string, number>();
+        for (const [char, subject] of Object.entries(results)) {
+          if (!subject) continue;
+          if (subject.object === "vocabulary")
+            vocab.set(char, subject.data.level);
+          else if (subject.object === "kanji")
+            kanji.set(char, subject.data.level);
+        }
+        setWkWordSets({ vocab, kanji });
+      })
+      .catch(() => {});
   }, [wanikaniApiKey, stories]);
 
   function handleDelete(id: string) {
@@ -125,6 +177,7 @@ export default function Library() {
             </div>
           ))}
         </div>
+        <KofiButton />
       </div>
     );
   }
@@ -155,10 +208,11 @@ export default function Library() {
             story={story}
             onDelete={handleDelete}
             wkWordSets={wkWordSets}
-            userLevel={(wanikaniLevelColors ?? true) ? wkUserLevel : null}
+            userLevel={wanikaniLevelColors ?? true ? wkUserLevel : null}
           />
         ))}
       </div>
+      <KofiButton />
     </div>
   );
 }
