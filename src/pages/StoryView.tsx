@@ -15,6 +15,7 @@ import React from "react";
 
 import FuriganaText from "../components/FuriganaText";
 import WaniKaniPopup from "../components/WaniKaniPopup";
+import WkLevelBar from "../components/WkLevelBar";
 
 const TYPE_ICONS: Record<string, string> = {
   conversation: "💬",
@@ -571,6 +572,13 @@ export default function StoryView() {
           ))}
         </div>
       </article>
+
+      {/* Kanji level distribution */}
+      <WkLevelBar
+        story={story}
+        kanjiLevels={wkWordSets?.kanji}
+        className="mb-4"
+      />
 
       {/* English summary */}
       {story.englishSummary && (

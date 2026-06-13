@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { getStories, deleteStory, getSettings, getWKUser } from "../lib/storage";
 import { lookupSubjectsBatch } from "../lib/wanikani";
+import { isCJK } from "../lib/wkLevels";
 import type { WkWordSets } from "../types";
 import StoryCard from "../components/StoryCard";
 
@@ -23,8 +24,14 @@ export default function Library() {
 
   useEffect(() => {
     if (!wanikaniApiKey) return;
-    const isCJK = (c: string) => { const cp = c.codePointAt(0)!; return cp >= 0x4e00 && cp <= 0x9fff; };
-    const chars = [...new Set(stories.flatMap((s) => [...s.title].filter(isCJK)))];
+    const chars = [
+      ...new Set(
+        stories.flatMap((s) => [
+          ...[...s.title].filter(isCJK),
+          ...s.segments.flatMap((seg) => [...seg.text].filter(isCJK)),
+        ]),
+      ),
+    ];
     if (chars.length === 0) return;
     lookupSubjectsBatch(chars, wanikaniApiKey).then((results) => {
       const vocab = new Map<string, number>();

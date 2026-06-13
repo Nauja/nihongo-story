@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Badge, Button } from "react-bootstrap";
 import type { Story, WkWordSets } from "../types";
 import FuriganaText from "./FuriganaText";
+import WkLevelBar from "./WkLevelBar";
 
 const JLPT_BADGE_VARIANTS: Record<number, string> = {
   5: "success",
@@ -82,6 +83,12 @@ export default function StoryCard({ story, onDelete, wkWordSets, userLevel }: Pr
             {story.englishSummary}
           </p>
         </section>
+
+        <WkLevelBar
+          story={story}
+          kanjiLevels={wkWordSets?.kanji}
+          className="mb-3"
+        />
 
         <footer className="d-flex align-items-center justify-content-between">
           <small className="text-secondary text-truncate me-2 fst-italic">
