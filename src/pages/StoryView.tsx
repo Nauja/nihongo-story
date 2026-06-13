@@ -82,6 +82,8 @@ export default function StoryView() {
   const [activeVocabWord, setActiveVocabWord] = useState<string | null>(null);
   const activeVocabWordRef = useRef<string | null>(null);
   activeVocabWordRef.current = activeVocabWord;
+  const [searchInput, setSearchInput] = useState("");
+  const [searchWord, setSearchWord] = useState<string | null>(null);
   const playGenRef = useRef(0);
   const { subject, relatedSubjects, loading, error, lookup, clear } =
     useWaniKaniLookup(wanikaniApiKey);
@@ -163,6 +165,7 @@ export default function StoryView() {
         clear();
       } else {
         setActiveVocabWord(null);
+        setSearchWord(null);
         setActivePanel({ lineIndex, word });
         setPopupMode(defaultPopupMode ?? "advanced");
         lookup(word);
@@ -179,12 +182,23 @@ export default function StoryView() {
       } else {
         setActiveVocabWord(word);
         setActivePanel(null);
+        setSearchWord(null);
         setPopupMode(defaultPopupMode ?? "advanced");
         lookup(word);
       }
     },
     [lookup, clear, defaultPopupMode],
   );
+
+  const handleSearch = useCallback(() => {
+    const word = searchInput.trim();
+    if (!word) return;
+    setActivePanel(null);
+    setActiveVocabWord(null);
+    setSearchWord(word);
+    setPopupMode(defaultPopupMode ?? "advanced");
+    lookup(word);
+  }, [searchInput, lookup, defaultPopupMode]);
 
   useEffect(() => {
     if (!wanikaniApiKey) return;
@@ -487,6 +501,80 @@ export default function StoryView() {
         </div>
       </div>
 
+      {/* Lookup search */}
+      <div className="mb-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSearch();
+          }}
+        >
+          <div className="position-relative">
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="text-secondary position-absolute"
+              style={{
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none",
+              }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z"
+              />
+            </svg>
+            <input
+              type="search"
+              className="form-control"
+              placeholder="lookup a kanji or word"
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                if (e.target.value === "") {
+                  setSearchWord(null);
+                  clear();
+                }
+              }}
+              style={{
+                paddingLeft: 38,
+                background: "var(--surface-1)",
+                border: "1px solid var(--border-subtle)",
+              }}
+            />
+          </div>
+        </form>
+        {searchWord && (
+          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <WaniKaniPopup
+              word={searchWord}
+              subject={subject}
+              relatedSubjects={relatedSubjects}
+              loading={loading}
+              error={error}
+              noKey={!wanikaniApiKey}
+              simpleMode={popupMode === "simple"}
+              onToggleMode={() =>
+                setPopupMode((prev) =>
+                  prev === "simple" ? "advanced" : "simple",
+                )
+              }
+              onClose={() => {
+                setSearchWord(null);
+                clear();
+              }}
+            />
+          </div>
+        )}
+      </div>
+
       {/* Illustration */}
       {story.illustration && (
         <img
@@ -511,6 +599,7 @@ export default function StoryView() {
         onClick={() => {
           setActivePanel(null);
           setActiveVocabWord(null);
+          setSearchWord(null);
           clear();
         }}
       >
