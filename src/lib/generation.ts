@@ -158,18 +158,24 @@ Target level: ${buildLevelInstruction(params.level)}
 REQUIRED length: ${lengthInstruction}. This is a hard requirement — write the full requested length and do not stop early.`;
 }
 
-async function generateStoryAnthropic(params: GenerateParams): Promise<Story> {
+async function generateStoryAnthropic(
+  params: GenerateParams,
+  signal?: AbortSignal,
+): Promise<Story> {
   const client = new Anthropic({
     apiKey: params.apiKey,
     dangerouslyAllowBrowser: true,
   });
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserPrompt(params) }],
-  });
+  const message = await client.messages.create(
+    {
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildUserPrompt(params) }],
+    },
+    { signal },
+  );
 
   const content = message.content[0];
   if (content.type !== "text") {
@@ -180,14 +186,19 @@ async function generateStoryAnthropic(params: GenerateParams): Promise<Story> {
   return parseStoryJSON(raw, params);
 }
 
-async function generateStoryGemini(params: GenerateParams): Promise<Story> {
+async function generateStoryGemini(
+  params: GenerateParams,
+  signal?: AbortSignal,
+): Promise<Story> {
   const genAI = new GoogleGenerativeAI(params.apiKey);
   const model = genAI.getGenerativeModel({
     model: params.geminiModel || "gemini-2.5-flash",
     systemInstruction: SYSTEM_PROMPT,
   });
 
-  const result = await model.generateContent(buildUserPrompt(params));
+  const result = await model.generateContent(buildUserPrompt(params), {
+    signal,
+  });
   const text = result.response.text();
 
   const raw = JSON.parse(extractJSON(text)) as RawStoryJSON;
@@ -198,7 +209,10 @@ interface OllamaResponse {
   message?: { content?: string };
 }
 
-async function generateStoryOllama(params: GenerateParams): Promise<Story> {
+async function generateStoryOllama(
+  params: GenerateParams,
+  signal?: AbortSignal,
+): Promise<Story> {
   const baseUrl = params.ollamaBaseUrl.replace(/\/$/, "");
 
   let res: Response;
@@ -216,8 +230,12 @@ async function generateStoryOllama(params: GenerateParams): Promise<Story> {
         format: "json",
         options: OLLAMA_LENGTH_BUDGET[params.length] ?? OLLAMA_LENGTH_BUDGET[3],
       }),
+      signal,
     });
-  } catch {
+  } catch (err) {
+    // Re-throw a cancellation so callers can treat it as a clean abort rather
+    // than a connection failure.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     // A CORS block or a connection failure rejects fetch with a TypeError
     // before we ever get a Response, so it never reaches the !res.ok check below.
     const origin = window.location.origin;
@@ -294,12 +312,19 @@ export async function generateIllustration(
   return generateIllustrationGemini(story, params.apiKey);
 }
 
-export async function generateStory(params: GenerateParams): Promise<Story> {
+export async function generateStory(
+  params: GenerateParams,
+  signal?: AbortSignal,
+): Promise<Story> {
   try {
-    if (params.provider === "gemini") return await generateStoryGemini(params);
-    if (params.provider === "ollama") return await generateStoryOllama(params);
-    return await generateStoryAnthropic(params);
+    if (params.provider === "gemini")
+      return await generateStoryGemini(params, signal);
+    if (params.provider === "ollama")
+      return await generateStoryOllama(params, signal);
+    return await generateStoryAnthropic(params, signal);
   } catch (err) {
+    // Preserve cancellations untouched so callers can detect a clean abort.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     if (err instanceof SyntaxError) {
       throw new Error(
         "Failed to parse story JSON from AI response. Please try again.",

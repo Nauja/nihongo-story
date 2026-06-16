@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Badge, Button } from "react-bootstrap";
 import type { Story, WkWordSets } from "../types";
+import type { LevelMode, KanjiLevelStyle } from "../lib/wkLevels";
 import FuriganaText from "./FuriganaText";
 import WkLevelBar from "./WkLevelBar";
 
@@ -36,10 +37,19 @@ interface Props {
   story: Story;
   onDelete: (id: string) => void;
   wkWordSets?: WkWordSets | null;
-  userLevel?: number | null;
+  levelStyle?: KanjiLevelStyle;
+  levelMode: LevelMode;
+  kanjiLevels?: Map<string, number> | null;
 }
 
-export default function StoryCard({ story, onDelete, wkWordSets, userLevel }: Props) {
+export default function StoryCard({
+  story,
+  onDelete,
+  wkWordSets,
+  levelStyle,
+  levelMode,
+  kanjiLevels,
+}: Props) {
   const date = new Date(story.createdAt).toLocaleDateString("ja-JP", {
     year: "numeric",
     month: "short",
@@ -62,7 +72,7 @@ export default function StoryCard({ story, onDelete, wkWordSets, userLevel }: Pr
         <header className="d-flex align-items-start justify-content-between gap-3 mb-3">
           <div className="min-w-0 flex-grow-1">
             <h2 className="fs-5 fw-bold font-japanese text-truncate mb-0" style={{ paddingBottom: '10px' }}>
-              <FuriganaText text={story.title} wkWordSets={wkWordSets} userLevel={userLevel} />
+              <FuriganaText text={story.title} wkWordSets={wkWordSets} levelStyle={levelStyle} levelMode={levelMode} dimLevels={kanjiLevels} />
             </h2>
             {story.titleReading && (
               <small className="text-secondary font-japanese">
@@ -86,7 +96,8 @@ export default function StoryCard({ story, onDelete, wkWordSets, userLevel }: Pr
 
         <WkLevelBar
           story={story}
-          kanjiLevels={wkWordSets?.kanji}
+          kanjiLevels={kanjiLevels}
+          mode={levelMode}
           className="mb-3"
         />
 

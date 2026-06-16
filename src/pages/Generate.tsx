@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Alert, Button, Form } from "react-bootstrap";
-import { getSettings, saveStory } from "../lib/storage";
-import { generateStory } from "../lib/generation";
+import { getSettings, getWKUser } from "../lib/storage";
+import { useGeneration } from "../lib/generationContext";
 import type { StoryType, LevelType } from "../types";
 
 const STORY_TYPES: {
@@ -29,16 +29,15 @@ const LENGTH_PRESETS: { value: number; label: string; desc: string }[] = [
 ];
 
 export default function Generate() {
-  const navigate = useNavigate();
   const settings = getSettings();
+  const wkUserLevel = getWKUser()?.level ?? 1;
+  const { status, error, startGeneration, cancelGeneration } = useGeneration();
 
   const [theme, setTheme] = useState("");
   const [storyType, setStoryType] = useState<StoryType>("novel");
   const [levelType, setLevelType] = useState<LevelType>("jlpt");
   const [levelValue, setLevelValue] = useState(5);
   const [storyLength, setStoryLength] = useState(3);
-  const [loading, setLoading] = useState<"idle" | "story">("idle");
-  const [error, setError] = useState<string | null>(null);
 
   const hasKey =
     settings.provider === "ollama"
@@ -46,44 +45,27 @@ export default function Generate() {
       : settings.provider === "gemini"
         ? Boolean(settings.geminiApiKey)
         : Boolean(settings.claudeApiKey);
-  const isLoading = loading !== "idle";
+  const isLoading = status === "generating";
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!hasKey) return;
+    if (!hasKey || isLoading) return;
 
-    setLoading("story");
-    setError(null);
-
-    try {
-      const apiKey =
-        settings.provider === "gemini"
-          ? settings.geminiApiKey
-          : settings.claudeApiKey;
-      const genParams = {
-        theme: theme.trim(),
-        storyType,
-        level: { type: levelType, value: levelValue },
-        length: storyLength,
-        provider: settings.provider,
-        apiKey,
-        geminiModel: settings.geminiModel,
-        ollamaBaseUrl: settings.ollamaBaseUrl,
-        ollamaModel: settings.ollamaModel,
-      };
-      const story = await generateStory(genParams);
-      saveStory(story);
-
-      navigate(`/story/${story.id}`);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Generation failed. Please try again.",
-      );
-    } finally {
-      setLoading("idle");
-    }
+    const apiKey =
+      settings.provider === "gemini"
+        ? settings.geminiApiKey
+        : settings.claudeApiKey;
+    startGeneration({
+      theme: theme.trim(),
+      storyType,
+      level: { type: levelType, value: levelValue },
+      length: storyLength,
+      provider: settings.provider,
+      apiKey,
+      geminiModel: settings.geminiModel,
+      ollamaBaseUrl: settings.ollamaBaseUrl,
+      ollamaModel: settings.ollamaModel,
+    });
   }
 
   return (
@@ -123,7 +105,7 @@ export default function Generate() {
             onChange={(e) => setTheme(e.target.value)}
             placeholder="e.g. A cat who wants to become a chef, a rainy day in Tokyo… or leave blank for a random story"
             rows={3}
-            style={{ resize: "none" }}
+            style={{ resize: "none", backgroundColor: "var(--surface-1)" }}
           />
         </Form.Group>
 
@@ -175,7 +157,7 @@ export default function Generate() {
                 type="button"
                 onClick={() => {
                   setLevelType(lt);
-                  setLevelValue(lt === "jlpt" ? 5 : 1);
+                  setLevelValue(lt === "jlpt" ? 5 : wkUserLevel);
                 }}
                 className={`px-3 py-2 rounded-2 border small fw-medium ${
                   levelType === lt
@@ -364,6 +346,16 @@ export default function Generate() {
             </>
           )}
         </Button>
+        {isLoading && (
+          <Button
+            type="button"
+            variant="outline-secondary"
+            onClick={cancelGeneration}
+            className="w-100 py-2 fw-semibold"
+          >
+            Cancel
+          </Button>
+        )}
         {isLoading && (
           <p className="text-center small text-secondary">
             {`${

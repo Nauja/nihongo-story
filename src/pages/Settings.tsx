@@ -11,12 +11,18 @@ import {
   setWKCacheBuiltAt,
   getWKCacheCount,
   getWKCacheSize,
+  clearJLPTCache,
+  getJLPTCacheBuiltAt,
+  setJLPTCacheBuiltAt,
+  getJLPTCacheCount,
+  getJLPTCacheSize,
   exportStories,
   importStories,
   exportConfig,
   importConfig,
 } from "../lib/storage";
 import { buildWKSubjectCache } from "../lib/wanikani";
+import { buildJLPTKanjiCache } from "../lib/jlpt";
 import type { AIProvider } from "../types";
 
 function ApiKeyField({
@@ -155,6 +161,7 @@ export default function Settings() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteStories, setConfirmDeleteStories] = useState(false);
   const [confirmDeleteCache, setConfirmDeleteCache] = useState(false);
+  const [confirmDeleteJlptCache, setConfirmDeleteJlptCache] = useState(false);
   const [cacheVersion, setCacheVersion] = useState(0);
   const [cacheBuiltAt, setCacheBuiltAt] = useState<Date | null>(
     getWKCacheBuiltAt,
@@ -167,6 +174,17 @@ export default function Settings() {
   const [buildError, setBuildError] = useState<string | null>(null);
   const [wkCacheCount, setWkCacheCount] = useState(0);
   const [wkCacheSize, setWkCacheSize] = useState(0);
+  const [jlptCacheBuiltAt, setJlptCacheBuiltAt] = useState<Date | null>(
+    getJLPTCacheBuiltAt,
+  );
+  const [buildingJlptCache, setBuildingJlptCache] = useState(false);
+  const [jlptBuildProgress, setJlptBuildProgress] = useState<{
+    loaded: number;
+    total: number;
+  }>({ loaded: 0, total: 0 });
+  const [jlptBuildError, setJlptBuildError] = useState<string | null>(null);
+  const [jlptCacheCount, setJlptCacheCount] = useState(0);
+  const [jlptCacheSize, setJlptCacheSize] = useState(0);
   const [importResult, setImportResult] = useState<{
     imported: number;
     skipped: number;
@@ -184,6 +202,12 @@ export default function Settings() {
       setWkCacheCount(count);
       setWkCacheSize(size);
     });
+    Promise.all([getJLPTCacheCount(), getJLPTCacheSize()]).then(
+      ([count, size]) => {
+        setJlptCacheCount(count);
+        setJlptCacheSize(size);
+      },
+    );
   }, [cacheVersion]);
 
   function formatBytes(b: number): string {
@@ -218,6 +242,26 @@ export default function Settings() {
       setBuildError(e instanceof Error ? e.message : "Cache build failed");
     } finally {
       setBuildingCache(false);
+    }
+  }
+
+  async function handleBuildJlptCache() {
+    if (buildingJlptCache) return;
+    setBuildingJlptCache(true);
+    setJlptBuildError(null);
+    setJlptBuildProgress({ loaded: 0, total: 0 });
+    try {
+      await buildJLPTKanjiCache((loaded, total) => {
+        setJlptBuildProgress({ loaded, total });
+      });
+      setJLPTCacheBuiltAt();
+      setJlptCacheBuiltAt(new Date());
+      setCacheVersion((v) => v + 1);
+      getJLPTCacheCount().then(setJlptCacheCount);
+    } catch (e) {
+      setJlptBuildError(e instanceof Error ? e.message : "Cache build failed");
+    } finally {
+      setBuildingJlptCache(false);
     }
   }
 
@@ -453,8 +497,8 @@ export default function Settings() {
             <div className="d-flex align-items-center justify-content-between gap-3">
               <span className="small text-secondary">
                 {cacheBuiltAt
-                  ? `Cache built ${formatRelativeTime(cacheBuiltAt)}`
-                  : "Vocabulary cache"}
+                  ? `WaniKani cache built ${formatRelativeTime(cacheBuiltAt)}`
+                  : "WaniKani cache"}
               </span>
               <Button
                 variant={cacheBuiltAt ? "outline-secondary" : "outline-primary"}
@@ -479,15 +523,73 @@ export default function Settings() {
                 style={{ height: "0.5rem" }}
               />
             )}
-            {!cacheBuiltAt && !buildingCache && (
-              <Form.Text className="text-secondary">
-                Pre-loads all WaniKani kanji and vocabulary (~9 000 subjects)
-                into local storage. Build it once and vocabulary popups will
-                appear instantly without making an API call per word.
-              </Form.Text>
-            )}
+            <Form.Text className="text-secondary">
+              Pre-loads all WaniKani kanji and vocabulary (~9 000 subjects) into
+              local storage. Build it once and vocabulary popups will appear
+              instantly without making an API call per word.
+            </Form.Text>
             {buildError && (
               <p className="small text-danger mb-0">{buildError}</p>
+            )}
+          </div>
+        </div>
+
+        {/* JLPT section */}
+        <div className="section-card p-4 d-flex flex-column gap-4">
+          <h2
+            className="small fw-semibold text-secondary text-uppercase mb-0"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            JLPT (Optional)
+          </h2>
+          <div className="d-flex flex-column gap-2">
+            <div className="d-flex align-items-center justify-content-between gap-3">
+              <span className="small text-secondary">
+                {jlptCacheBuiltAt
+                  ? `JLPT kanji cache built ${formatRelativeTime(jlptCacheBuiltAt)}`
+                  : "JLPT kanji cache"}
+              </span>
+              <Button
+                variant={
+                  jlptCacheBuiltAt ? "outline-secondary" : "outline-primary"
+                }
+                size="sm"
+                disabled={buildingJlptCache}
+                onClick={handleBuildJlptCache}
+                type="button"
+              >
+                {buildingJlptCache
+                  ? "Building…"
+                  : jlptCacheBuiltAt
+                    ? "Refresh Cache"
+                    : "Build Cache"}
+              </Button>
+            </div>
+            {buildingJlptCache && jlptBuildProgress.total > 0 && (
+              <ProgressBar
+                now={(jlptBuildProgress.loaded / jlptBuildProgress.total) * 100}
+                animated
+                striped
+                label={`${jlptBuildProgress.loaded} / ${jlptBuildProgress.total}`}
+                style={{ height: "0.5rem" }}
+              />
+            )}
+            <Form.Text className="text-secondary">
+              Loads the JLPT N5–N1 kanji lists into local storage. Build it once
+              to see the JLPT level distribution of each story and dim kanji
+              outside a chosen level — no API key required. Data from{" "}
+              <a
+                href="https://www.tanos.co.uk/jlpt/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary"
+              >
+                tanos.co.uk/jlpt
+              </a>
+              .
+            </Form.Text>
+            {jlptBuildError && (
+              <p className="small text-danger mb-0">{jlptBuildError}</p>
             )}
           </div>
         </div>
@@ -793,68 +895,115 @@ export default function Settings() {
         )}
         <hr className="my-0" style={{ borderColor: "rgba(239,68,68,0.2)" }} />
 
-        {(settings.wanikaniApiKey || wkCacheCount > 0) && (
-          <>
-            {!confirmDeleteCache ? (
-              <div className="d-flex align-items-center justify-content-between gap-3">
-                <div>
-                  <p className="small fw-medium text-body mb-0">
-                    Clear WaniKani cache
-                  </p>
-                  <p className="small text-secondary mb-0">
-                    {wkCacheCount > 0
-                      ? `${wkCacheCount.toLocaleString()} subjects cached · ${formatBytes(wkCacheSize)}`
-                      : "No subjects cached"}
-                  </p>
-                </div>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  className="flex-shrink-0"
-                  disabled={wkCacheCount === 0 && !cacheBuiltAt}
-                  onClick={() => setConfirmDeleteCache(true)}
-                >
-                  Clear Cache
-                </Button>
-              </div>
-            ) : (
-              <div className="d-flex flex-column gap-2">
-                <p className="small text-danger mb-0 fw-medium">
-                  ⚠ This will clear the WaniKani lookup cache. Your API key will
-                  not be affected.
-                </p>
-                <div className="d-flex gap-2">
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => setConfirmDeleteCache(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => {
-                      clearWKCache().then(() => {
-                        setCacheVersion((v) => v + 1);
-                        setCacheBuiltAt(null);
-                        setWkCacheCount(0);
-                        setWkCacheSize(0);
-                        setConfirmDeleteCache(false);
-                      });
-                    }}
-                  >
-                    Yes, clear cache
-                  </Button>
-                </div>
-              </div>
-            )}
-            <hr
-              className="my-0"
-              style={{ borderColor: "rgba(239,68,68,0.2)" }}
-            />
-          </>
+        {!confirmDeleteCache ? (
+          <div className="d-flex align-items-center justify-content-between gap-3">
+            <div>
+              <p className="small fw-medium text-body mb-0">
+                Clear WaniKani cache
+              </p>
+              <p className="small text-secondary mb-0">
+                {wkCacheCount > 0
+                  ? `${wkCacheCount.toLocaleString()} subjects cached · ${formatBytes(wkCacheSize)}`
+                  : "No subjects cached"}
+              </p>
+            </div>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              className="flex-shrink-0"
+              disabled={wkCacheCount === 0 && !cacheBuiltAt}
+              onClick={() => setConfirmDeleteCache(true)}
+            >
+              Clear Cache
+            </Button>
+          </div>
+        ) : (
+          <div className="d-flex flex-column gap-2">
+            <p className="small text-danger mb-0 fw-medium">
+              ⚠ This will clear the WaniKani lookup cache. Your API key will not
+              be affected.
+            </p>
+            <div className="d-flex gap-2">
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setConfirmDeleteCache(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  clearWKCache().then(() => {
+                    setCacheVersion((v) => v + 1);
+                    setCacheBuiltAt(null);
+                    setWkCacheCount(0);
+                    setWkCacheSize(0);
+                    setConfirmDeleteCache(false);
+                  });
+                }}
+              >
+                Yes, clear cache
+              </Button>
+            </div>
+          </div>
         )}
+        <hr className="my-0" style={{ borderColor: "rgba(239,68,68,0.2)" }} />
+
+        {!confirmDeleteJlptCache ? (
+          <div className="d-flex align-items-center justify-content-between gap-3">
+            <div>
+              <p className="small fw-medium text-body mb-0">Clear JLPT cache</p>
+              <p className="small text-secondary mb-0">
+                {jlptCacheCount > 0
+                  ? `${jlptCacheCount.toLocaleString()} kanji cached · ${formatBytes(jlptCacheSize)}`
+                  : "No kanji cached"}
+              </p>
+            </div>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              className="flex-shrink-0"
+              disabled={jlptCacheCount === 0 && !jlptCacheBuiltAt}
+              onClick={() => setConfirmDeleteJlptCache(true)}
+            >
+              Clear Cache
+            </Button>
+          </div>
+        ) : (
+          <div className="d-flex flex-column gap-2">
+            <p className="small text-danger mb-0 fw-medium">
+              ⚠ This will clear the JLPT kanji cache. You can rebuild it anytime
+              from Settings.
+            </p>
+            <div className="d-flex gap-2">
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setConfirmDeleteJlptCache(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  clearJLPTCache().then(() => {
+                    setCacheVersion((v) => v + 1);
+                    setJlptCacheBuiltAt(null);
+                    setJlptCacheCount(0);
+                    setJlptCacheSize(0);
+                    setConfirmDeleteJlptCache(false);
+                  });
+                }}
+              >
+                Yes, clear cache
+              </Button>
+            </div>
+          </div>
+        )}
+        <hr className="my-0" style={{ borderColor: "rgba(239,68,68,0.2)" }} />
 
         {!confirmDelete ? (
           <div className="d-flex align-items-center justify-content-between gap-3">

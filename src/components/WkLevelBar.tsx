@@ -1,20 +1,11 @@
 import type { CSSProperties } from "react";
 import type { Story } from "../types";
-import { wkLevelDistribution } from "../lib/wkLevels";
-
-// Easy → hard difficulty ramp across the six WaniKani level groups (1-10 … 51-60).
-const BUCKET_COLORS = [
-  "#22c55e", // 1-10  green
-  "#84cc16", // 11-20 lime
-  "#eab308", // 21-30 yellow
-  "#f97316", // 31-40 orange
-  "#ef4444", // 41-50 red
-  "#db2777", // 51-60 magenta
-];
+import { levelDistribution, type LevelMode } from "../lib/wkLevels";
 
 interface Props {
   story: Story;
   kanjiLevels?: Map<string, number> | null;
+  mode: LevelMode;
   className?: string;
   style?: CSSProperties;
   selectedBucket?: number | null;
@@ -24,12 +15,13 @@ interface Props {
 export default function WkLevelBar({
   story,
   kanjiLevels,
+  mode,
   className,
   style,
   selectedBucket,
   onSelectBucket,
 }: Props) {
-  const buckets = wkLevelDistribution(story, kanjiLevels);
+  const buckets = levelDistribution(story, kanjiLevels, mode);
   if (buckets.length === 0) return null;
 
   const dimmed = (index: number) =>
@@ -49,11 +41,11 @@ export default function WkLevelBar({
           <div
             key={b.index}
             role="button"
-            title={`Lv ${b.min}–${b.max} · ${b.count} kanji · ${Math.round(b.percent)}%`}
+            title={`${b.label} · ${b.count} kanji · ${Math.round(b.percent)}%`}
             onClick={() => onSelectBucket?.(b.index)}
             style={{
               width: `${b.percent}%`,
-              background: BUCKET_COLORS[b.index],
+              background: b.color,
               boxShadow:
                 i < buckets.length - 1
                   ? "inset -1px 0 0 var(--surface-1)"
@@ -71,7 +63,7 @@ export default function WkLevelBar({
             key={b.index}
             role="button"
             className="d-inline-flex align-items-center gap-1"
-            title={`Lv ${b.min}–${b.max} · ${b.count} kanji · ${Math.round(b.percent)}%`}
+            title={`${b.label} · ${b.count} kanji · ${Math.round(b.percent)}%`}
             onClick={() => onSelectBucket?.(b.index)}
             style={{
               cursor: "pointer",
@@ -85,11 +77,11 @@ export default function WkLevelBar({
                 width: 8,
                 height: 8,
                 borderRadius: 2,
-                background: BUCKET_COLORS[b.index],
+                background: b.color,
                 display: "inline-block",
               }}
             />
-            Lv {b.min}–{b.max}
+            {b.label}
           </span>
         ))}
       </div>

@@ -1,28 +1,23 @@
 import { useCallback } from 'react'
 import type { Segment, WkWordSets } from '../types'
-import { bucketOf } from '../lib/wkLevels'
+import { bucketOfMode, levelColor, levelHighlight, isCJK, UNAVAILABLE_BUCKET, type LevelMode, type KanjiLevelStyle } from '../lib/wkLevels'
 
 interface Props {
   segments?: Segment[]
   text?: string
   showFurigana?: boolean
   wkWordSets?: WkWordSets | null
-  userLevel?: number | null
+  levelStyle?: KanjiLevelStyle
   onWordClick?: (text: string) => void
   selectedWord?: string
   selectedBucket?: number | null
+  levelMode?: LevelMode
+  dimLevels?: Map<string, number> | null
 }
 
 const DIM_OPACITY = 0.3
 
-function getWKColor(itemLevel: number, userLevel: number | null | undefined, fallback: string): string {
-  if (userLevel == null) return fallback
-  if (itemLevel < userLevel) return 'rgba(34, 197, 94, 0.65)'
-  if (itemLevel === userLevel) return 'rgba(234, 179, 8, 0.65)'
-  return 'rgba(239, 68, 68, 0.65)'
-}
-
-export default function FuriganaText({ segments, text, showFurigana = false, wkWordSets, userLevel, onWordClick, selectedWord, selectedBucket }: Props) {
+export default function FuriganaText({ segments, text, showFurigana = false, wkWordSets, levelStyle = 'off', onWordClick, selectedWord, selectedBucket, levelMode = 'wanikani', dimLevels }: Props) {
   const resolvedSegments: Segment[] = segments ?? [...(text ?? '')].map(char => ({ text: char, isInteractive: true }))
 
   const handleClick = useCallback(
@@ -34,11 +29,14 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
   )
 
   // When a level bucket is selected, dim every character that is not a known
-  // kanji belonging to that bucket.
+  // kanji belonging to that bucket (in the active level scheme).
+  const bucketOfLevel = bucketOfMode(levelMode)
   const isDimmed = (char: string) => {
     if (selectedBucket == null) return false
-    const level = wkWordSets?.kanji.get(char)
-    return level === undefined || bucketOf(level) !== selectedBucket
+    if (!isCJK(char)) return true // non-kanji always dim while a bucket is active
+    const level = dimLevels?.get(char)
+    const bucket = level === undefined ? UNAVAILABLE_BUCKET : bucketOfLevel(level)
+    return bucket !== selectedBucket
   }
   const dimStyle = (char: string) => (isDimmed(char) ? { opacity: DIM_OPACITY } : undefined)
 
@@ -46,15 +44,20 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
   // becomes its own click target; otherwise characters are only colored.
   const renderChars = (seg: Segment, perKanji: boolean) =>
     [...seg.text].map((char, j) => {
-      const level = wkWordSets?.kanji.get(char)
-      const isKnownKanji = level !== undefined
-      const underline =
-        isKnownKanji && userLevel != null
-          ? {
-              textDecoration: 'underline',
-              textDecorationColor: getWKColor(level, userLevel, 'rgba(232, 0, 170, 0.45)'),
-              textUnderlineOffset: '4px',
-            }
+      const isKnownKanji = wkWordSets?.kanji.has(char) ?? false
+      const activeLevel = dimLevels?.get(char)
+      const levelStyleObj =
+        levelStyle !== 'off' && activeLevel !== undefined
+          ? levelStyle === 'underline'
+            ? {
+                textDecoration: 'underline',
+                textDecorationColor: levelColor(levelMode, activeLevel),
+                textUnderlineOffset: '4px',
+              }
+            : {
+                background: levelHighlight(levelMode, activeLevel),
+                borderRadius: 2,
+              }
           : undefined
       const dim = dimStyle(char)
       if (perKanji && isKnownKanji) {
@@ -63,11 +66,11 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
           <span
             key={j}
             style={{
-              ...underline,
+              ...levelStyleObj,
               ...dim,
               cursor: 'pointer',
-              background: isSelected ? 'var(--bs-warning-bg-subtle)' : undefined,
-              borderRadius: isSelected ? 2 : undefined,
+              // Selection background wins over a level highlight.
+              ...(isSelected ? { background: 'var(--bs-warning-bg-subtle)', borderRadius: 2 } : undefined),
             }}
             onClick={(e) => handleClick(e, char)}
           >
@@ -75,7 +78,7 @@ export default function FuriganaText({ segments, text, showFurigana = false, wkW
           </span>
         )
       }
-      if (underline || dim) return <span key={j} style={{ ...underline, ...dim }}>{char}</span>
+      if (levelStyleObj || dim) return <span key={j} style={{ ...levelStyleObj, ...dim }}>{char}</span>
       return char
     })
 

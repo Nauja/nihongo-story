@@ -9,7 +9,10 @@ export interface Settings {
   ollamaModel: string
   wanikaniApiKey: string
   wanikaniPopupMode?: 'simple' | 'advanced'
+  // Legacy boolean (true = underline); migrated to kanjiLevelStyle on read.
   wanikaniLevelColors?: boolean
+  kanjiLevelStyle?: 'off' | 'highlight' | 'underline'
+  levelDistributionMode?: 'jlpt' | 'wanikani'
   showFurigana?: boolean
   ttsVolume?: number
 theme: 'light' | 'dark'

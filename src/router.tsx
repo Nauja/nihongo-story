@@ -1,11 +1,13 @@
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { useEffect, Suspense, lazy } from 'react'
 import Layout from './components/Layout'
+import { GenerationProvider } from './lib/generationContext'
 
 const Library = lazy(() => import('./pages/Library'))
 const Generate = lazy(() => import('./pages/Generate'))
 const StoryView = lazy(() => import('./pages/StoryView'))
 const Settings = lazy(() => import('./pages/Settings'))
+const WhatsNew = lazy(() => import('./pages/WhatsNew'))
 
 function GTMPageTracker() {
   const location = useLocation()
@@ -26,17 +28,20 @@ function GTMPageTracker() {
 export default function Router() {
   return (
     <HashRouter>
-      <GTMPageTracker />
-      <Suspense fallback={null}>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<Library />} />
-            <Route path="generate" element={<Generate />} />
-            <Route path="story/:id" element={<StoryView />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </Suspense>
+      <GenerationProvider>
+        <GTMPageTracker />
+        <Suspense fallback={null}>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route index element={<Library />} />
+              <Route path="generate" element={<Generate />} />
+              <Route path="story/:id" element={<StoryView />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="whats-new" element={<WhatsNew />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </GenerationProvider>
     </HashRouter>
   )
 }

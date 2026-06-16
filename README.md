@@ -4,7 +4,7 @@
 [![GitHub Pages](https://img.shields.io/badge/deployed-GitHub%20Pages-blue?logo=github)](https://nauja.github.io/nihongo-story)
 
 
-Web app that generates short Japanese stories on any theme you choose, targeting your current proficiency (JLPT N5–N1 or WaniKani levels). Stories come with furigana, clickable vocabulary definitions, and optional WaniKani kanji details — making it easy to read above your comfort zone without a dictionary.
+Web app that generates short Japanese stories on any theme you choose, targeting your current proficiency (JLPT N5–N1 or WaniKani levels). Stories come with furigana, clickable vocabulary definitions, a per-story level breakdown, and optional WaniKani kanji details — making it easy to read above your comfort zone without a dictionary.
 
 ## Demo
 
@@ -18,7 +18,7 @@ WaniKani teaches kanji and vocabulary through mnemonics and stories — but when
 
 nihongo-story bridges these gaps: generate stories, dialogues, or other formats targeted to your current WaniKani level (or any JLPT level), with WaniKani info always one click away — no browser extension required, so it works on any device including mobile. Since content is AI-generated, errors in grammar, vocabulary, or kanji usage can occur — treat it as a reading aid, not a ground truth, and stay critical as you read.
 
-A WaniKani API key is entirely optional. The app works without one — you can generate and read stories at any JLPT or WaniKani level without it. If you don't use WaniKani, you can still pair the app with Yomitan or any other lookup tool of your choice for word definitions.
+A WaniKani API key is entirely optional. The app works without one — you can generate and read stories at any JLPT or WaniKani level without it. Even without WaniKani you can see each story's JLPT level distribution and have kanji colour-coded or dimmed by JLPT level, using bundled kanji lists that need no key (see [JLPT level data](#jlpt-level-data-optional)). If you don't use WaniKani, you can still pair the app with Yomitan or any other lookup tool of your choice for word definitions.
 
 ## Getting started
 
@@ -59,14 +59,27 @@ Open the **Generate** page and fill in three things:
 
 Once generated (10–30 seconds), you land directly on the story reader. The story is automatically saved to your library.
 
+Generation runs in the background, so you don't have to wait on the Generate page — navigate away and a spinner stays on the **Generate** tab while it works, then a toast pops up when the story is ready (tap it to open the reader). You can cancel an in-progress generation at any time.
+
 ### Reading a story
 
 The reader displays the Japanese text with furigana (reading hints) above kanji. A vocabulary list and an English summary are shown below the text.
 
-- Toggle furigana on/off with the switch in the toolbar or by pressing **Tab**
+- Toggle furigana on/off from the header quick-settings panel (below) or by pressing **Tab**
 - Use the **play/pause/stop** controls in the toolbar to listen to the story read aloud via the Web Speech API (Japanese voice, 0.9× speed). The progress bar shows the current line — click any position to jump to it. The active line is highlighted during playback.
 - Use the **volume slider** in the toolbar to adjust playback volume.
-- If a WaniKani API key is configured, hover or click any highlighted word to open a popup with its meanings, readings, and mnemonics pulled from WaniKani. Click outside to close.
+- A **level distribution bar** above the text shows how the story's kanji spread across difficulty bands — JLPT N5–N1 or WaniKani groups (1–10 … 51–60), depending on the selected scheme — plus a grey **N/A** segment for kanji outside that scheme. Click a band to dim everything except the kanji in it, so you can see at a glance which characters belong to a given level.
+- Known kanji can be **marked by level** (off, a translucent highlight, or a coloured underline), using the same easy→hard colour ramp as the distribution bar.
+- Use the **word search box** ("lookup a kanji or word") to type any word and open its lookup popup directly, even if it isn't tappable in the text.
+- If a WaniKani API key is configured (or its cache has been built), hover or click any highlighted word to open a popup with its meanings, readings, and mnemonics pulled from WaniKani. Click outside to close.
+
+#### Quick-settings panel
+
+A settings panel in the header gives one-tap control over how stories are displayed (preferences are saved to localStorage):
+
+- **Furigana** — show/hide reading aids above kanji.
+- **Level distribution** — choose the difficulty scale used by the bar and kanji marking: **JLPT** (always available) or **WK** (only selectable once a WaniKani key is set or its cache is built).
+- **Kanji levels** — how known kanji are marked in the text: **Off**, **Highlight**, or **Underline**.
 
 ## Library
 
@@ -133,7 +146,17 @@ The Settings page has a light/dark theme toggle. The preference is saved to loca
 Paste your WaniKani personal access token (found in [account settings](https://www.wanikani.com/settings/personal_access_tokens)) to enable:
 
 - Hover popups on any word in a story, showing meanings, readings, and mnemonics from WaniKani
+- The WaniKani level scheme for the distribution bar and kanji marking
 - Your WaniKani username and level displayed in the app
+
+You can also tune two options:
+
+- **Popup mode** — choose a **simple** (concise) or **advanced** (more detail) WaniKani popup.
+- **Offline cache** — pre-load all WaniKani subjects (~9,000 kanji and vocabulary) into your browser. Once built, popups and WaniKani-level colouring work without re-querying the API on every story — and the WaniKani level scheme becomes usable even without keeping a key configured. Build, refresh, or clear the cache from Settings (it shows the cached count and size).
+
+### JLPT level data (optional)
+
+Build the **JLPT kanji cache** once from the bundled N5–N1 kanji lists (no API key, no network beyond the one-time load of files shipped with the app). It powers the JLPT level distribution bar and lets you colour or dim kanji by JLPT level. Build, refresh, or clear it from Settings, which shows the cached count and size. Kanji-list data is from [tanos.co.uk/jlpt](https://www.tanos.co.uk/jlpt/).
 
 ### Data transfer
 

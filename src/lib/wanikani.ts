@@ -106,6 +106,22 @@ export async function lookupSubjectsBatch(
   return result
 }
 
+// Reads WaniKani subjects for the given words from the built cache only — no API
+// key and no network. Used when the WK distribution is "knowable" from a built
+// cache but no API key is set.
+export async function lookupCachedSubjectsBatch(
+  words: string[],
+): Promise<Record<string, WaniKaniSubject | null>> {
+  if (words.length === 0) return {}
+
+  const values = await getWKCacheEntries(words)
+  const result: Record<string, WaniKaniSubject | null> = {}
+  words.forEach((word, i) => {
+    result[word] = (values[i] ?? null) as WaniKaniSubject | null
+  })
+  return result
+}
+
 export async function buildWKSubjectCache(
   apiKey: string,
   onProgress: (loaded: number, total: number) => void,

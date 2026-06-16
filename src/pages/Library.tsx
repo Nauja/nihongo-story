@@ -5,10 +5,12 @@ import {
   getStories,
   deleteStory,
   getSettings,
-  getWKUser,
+  getWKCacheBuiltAt,
+  getKanjiLevelStyle,
 } from "../lib/storage";
-import { lookupSubjectsBatch } from "../lib/wanikani";
-import { isCJK } from "../lib/wkLevels";
+import { lookupSubjectsBatch, lookupCachedSubjectsBatch } from "../lib/wanikani";
+import { getJLPTKanjiLevels } from "../lib/jlpt";
+import { isCJK, effectiveLevelMode, type LevelMode, type KanjiLevelStyle } from "../lib/wkLevels";
 import type { WkWordSets } from "../types";
 import StoryCard from "../components/StoryCard";
 
@@ -55,23 +57,55 @@ function KofiButton() {
 export default function Library() {
   const [stories, setStories] = useState(() => getStories());
   const [wkWordSets, setWkWordSets] = useState<WkWordSets | null>(null);
-  const [wkUserLevel] = useState<number | null>(
-    () => getWKUser()?.level ?? null,
-  );
   const { wanikaniApiKey } = getSettings();
-  const [wanikaniLevelColors, setWanikaniLevelColors] = useState(
-    () => getSettings().wanikaniLevelColors ?? true,
+  const [levelStyle, setLevelStyle] = useState<KanjiLevelStyle>(
+    () => getKanjiLevelStyle(),
+  );
+  const [jlptLevels, setJlptLevels] = useState<Map<string, number> | null>(
+    null,
+  );
+  const [levelMode, setLevelMode] = useState<LevelMode>(() =>
+    effectiveLevelMode(
+      getSettings().levelDistributionMode,
+      !!getSettings().wanikaniApiKey || getWKCacheBuiltAt() != null,
+    ),
   );
 
   useEffect(() => {
-    const sync = () =>
-      setWanikaniLevelColors(getSettings().wanikaniLevelColors ?? true);
+    const sync = () => {
+      const s = getSettings();
+      setLevelStyle(getKanjiLevelStyle());
+      setLevelMode(
+        effectiveLevelMode(
+          s.levelDistributionMode,
+          !!s.wanikaniApiKey || getWKCacheBuiltAt() != null,
+        ),
+      );
+    };
     window.addEventListener("nihongo-settings-changed", sync);
     return () => window.removeEventListener("nihongo-settings-changed", sync);
   }, []);
 
   useEffect(() => {
-    if (!wanikaniApiKey) return;
+    const chars = [
+      ...new Set(
+        stories.flatMap((s) => [
+          ...[...s.title].filter(isCJK),
+          ...s.segments.flatMap((seg) => [...seg.text].filter(isCJK)),
+        ]),
+      ),
+    ];
+    if (chars.length === 0) {
+      setJlptLevels(new Map());
+      return;
+    }
+    getJLPTKanjiLevels(chars)
+      .then(setJlptLevels)
+      .catch(() => setJlptLevels(new Map()));
+  }, [stories]);
+
+  useEffect(() => {
+    if (!wanikaniApiKey && getWKCacheBuiltAt() == null) return;
     const chars = [
       ...new Set(
         stories.flatMap((s) => [
@@ -81,7 +115,10 @@ export default function Library() {
       ),
     ];
     if (chars.length === 0) return;
-    lookupSubjectsBatch(chars, wanikaniApiKey)
+    const source = wanikaniApiKey
+      ? lookupSubjectsBatch(chars, wanikaniApiKey)
+      : lookupCachedSubjectsBatch(chars);
+    source
       .then((results) => {
         const vocab = new Map<string, number>();
         const kanji = new Map<string, number>();
@@ -208,7 +245,11 @@ export default function Library() {
             story={story}
             onDelete={handleDelete}
             wkWordSets={wkWordSets}
-            userLevel={wanikaniLevelColors ?? true ? wkUserLevel : null}
+            levelStyle={levelStyle}
+            levelMode={levelMode}
+            kanjiLevels={
+              levelMode === "jlpt" ? jlptLevels : wkWordSets?.kanji ?? null
+            }
           />
         ))}
       </div>

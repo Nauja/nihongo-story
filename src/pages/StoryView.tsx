@@ -5,11 +5,14 @@ import {
   getStories,
   getSettings,
   saveSettings,
-  getWKUser,
+  getWKCacheBuiltAt,
+  getKanjiLevelStyle,
   exportStory,
 } from "../lib/storage";
 import type { WkWordSets } from "../types";
-import { lookupSubjectsBatch } from "../lib/wanikani";
+import { lookupSubjectsBatch, lookupCachedSubjectsBatch } from "../lib/wanikani";
+import { getJLPTKanjiLevels } from "../lib/jlpt";
+import { effectiveLevelMode, type LevelMode, type KanjiLevelStyle } from "../lib/wkLevels";
 import { useWaniKaniLookup } from "../hooks/useWaniKaniLookup";
 import React from "react";
 
@@ -59,11 +62,8 @@ export default function StoryView() {
     () => getSettings().showFurigana ?? true,
   );
   const { wanikaniApiKey } = getSettings();
-  const [wanikaniLevelColors, setWanikaniLevelColors] = useState(
-    () => getSettings().wanikaniLevelColors ?? true,
-  );
-  const [wkUserLevel] = useState<number | null>(
-    () => getWKUser()?.level ?? null,
+  const [levelStyle, setLevelStyle] = useState<KanjiLevelStyle>(
+    () => getKanjiLevelStyle(),
   );
   const [defaultPopupMode, setDefaultPopupMode] = useState<
     "simple" | "advanced"
@@ -101,6 +101,15 @@ export default function StoryView() {
   const currentLineRef = useRef(-1);
   currentLineRef.current = currentLine;
   const [wkWordSets, setWkWordSets] = useState<WkWordSets | null>(null);
+  const [jlptLevels, setJlptLevels] = useState<Map<string, number> | null>(
+    null,
+  );
+  const [levelMode, setLevelMode] = useState<LevelMode>(() =>
+    effectiveLevelMode(
+      getSettings().levelDistributionMode,
+      !!getSettings().wanikaniApiKey || getWKCacheBuiltAt() != null,
+    ),
+  );
   const [selectedBucket, setSelectedBucket] = useState<number | null>(null);
   const [japaneseVoice, setJapaneseVoice] =
     useState<SpeechSynthesisVoice | null>(null);
@@ -121,19 +130,48 @@ export default function StoryView() {
   }, [showFurigana]);
 
   useEffect(() => {
-    saveSettings({ ...getSettings(), wanikaniLevelColors });
-  }, [wanikaniLevelColors]);
-
-  useEffect(() => {
     const sync = () => {
       const s = getSettings();
       setShowFurigana(s.showFurigana ?? true);
-      setWanikaniLevelColors(s.wanikaniLevelColors ?? true);
+      setLevelStyle(getKanjiLevelStyle());
       setDefaultPopupMode(s.wanikaniPopupMode ?? "advanced");
+      setLevelMode(
+        effectiveLevelMode(
+          s.levelDistributionMode,
+          !!s.wanikaniApiKey || getWKCacheBuiltAt() != null,
+        ),
+      );
     };
     window.addEventListener("nihongo-settings-changed", sync);
     return () => window.removeEventListener("nihongo-settings-changed", sync);
   }, []);
+
+  // Reset the selected level bucket when the scheme changes — WaniKani and JLPT
+  // use different bucket indices.
+  useEffect(() => {
+    setSelectedBucket(null);
+  }, [levelMode]);
+
+  // Load JLPT levels for this story's kanji. getJLPTKanjiLevels builds the cache
+  // from the bundled txt files on first use, so this is always available.
+  useEffect(() => {
+    const story = getStories().find((s) => s.id === id);
+    if (!story) return;
+    const isCJK = (c: string) => {
+      const cp = c.codePointAt(0)!;
+      return cp >= 0x4e00 && cp <= 0x9fff;
+    };
+    const chars = [
+      ...new Set(story.segments.flatMap((s) => [...s.text].filter(isCJK))),
+    ];
+    if (chars.length === 0) {
+      setJlptLevels(new Map());
+      return;
+    }
+    getJLPTKanjiLevels(chars)
+      .then(setJlptLevels)
+      .catch(() => setJlptLevels(new Map()));
+  }, [id]);
 
   useEffect(() => {
     saveSettings({ ...getSettings(), wanikaniPopupMode: popupMode });
@@ -212,7 +250,8 @@ export default function StoryView() {
   }, [searchInput, lookup, defaultPopupMode]);
 
   useEffect(() => {
-    if (!wanikaniApiKey) return;
+    // WaniKani levels are "knowable" from a live API key or a built cache.
+    if (!wanikaniApiKey && getWKCacheBuiltAt() == null) return;
     const story = getStories().find((s) => s.id === id);
     if (!story) return;
     const segWords = [
@@ -229,7 +268,10 @@ export default function StoryView() {
     ];
     const allWords = [...new Set([...segWords, ...kanjiCharsFromSegs])];
     if (allWords.length === 0) return;
-    lookupSubjectsBatch(allWords, wanikaniApiKey)
+    const source = wanikaniApiKey
+      ? lookupSubjectsBatch(allWords, wanikaniApiKey)
+      : lookupCachedSubjectsBatch(allWords);
+    source
       .then((results) => {
         const vocab = new Map<string, number>();
         const kanji = new Map<string, number>();
@@ -260,6 +302,11 @@ export default function StoryView() {
 
   const lines = splitIntoLines(story.segments);
   const lineTexts = getLineTexts(lines);
+
+  // Kanji → level map for the active distribution scheme; drives both the level
+  // bar and the bucket-dimming.
+  const activeKanjiLevels =
+    levelMode === "jlpt" ? jlptLevels : wkWordSets?.kanji ?? null;
 
   function playFromLine(start: number) {
     const gen = ++playGenRef.current;
@@ -640,8 +687,10 @@ export default function StoryView() {
                   segments={line}
                   showFurigana={showFurigana}
                   wkWordSets={wkWordSets}
-                  userLevel={(wanikaniLevelColors ?? true) ? wkUserLevel : null}
+                  levelStyle={levelStyle}
                   selectedBucket={selectedBucket}
+                  levelMode={levelMode}
+                  dimLevels={activeKanjiLevels}
                   onWordClick={(word) => handleWordClick(i, word)}
                   selectedWord={
                     activePanel?.lineIndex === i ? activePanel.word : undefined
@@ -686,7 +735,8 @@ export default function StoryView() {
       {/* Kanji level distribution */}
       <WkLevelBar
         story={story}
-        kanjiLevels={wkWordSets?.kanji}
+        kanjiLevels={activeKanjiLevels}
+        mode={levelMode}
         className="mb-4"
         selectedBucket={selectedBucket}
         onSelectBucket={(i) =>
@@ -744,10 +794,10 @@ export default function StoryView() {
                             },
                           ]}
                           wkWordSets={wkWordSets}
-                          userLevel={
-                            (wanikaniLevelColors ?? true) ? wkUserLevel : null
-                          }
+                          levelStyle={levelStyle}
                           selectedBucket={selectedBucket}
+                          levelMode={levelMode}
+                          dimLevels={activeKanjiLevels}
                           selectedWord={
                             activeVocabItem === item.word
                               ? (activeVocabWord ?? undefined)

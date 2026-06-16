@@ -27,3 +27,6 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Anki source decks (converted to *-kanji.txt)
+public/jlpt/*.anki

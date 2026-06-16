@@ -5,6 +5,7 @@ const KEYS = {
   stories: 'jap_stories',
   wkUser: 'jap_wk_user',
   wkCacheBuiltAt: 'jap_wk_cache_built_at',
+  jlptCacheBuiltAt: 'jap_jlpt_cache_built_at',
 } as const
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
@@ -120,6 +121,84 @@ export async function getWKCacheSize(): Promise<number> {
   return new Blob([JSON.stringify(values)]).size
 }
 
+// ── IndexedDB — JLPT kanji cache (character → JLPT level) ─────────────────────
+
+const JLPT_DB_NAME = 'jap_jlpt_db'
+const JLPT_STORE = 'kanji'
+let jlptDbPromise: Promise<IDBDatabase> | null = null
+
+function openJLPTDB(): Promise<IDBDatabase> {
+  if (!jlptDbPromise) {
+    jlptDbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(JLPT_DB_NAME, 1)
+      req.onupgradeneeded = () => req.result.createObjectStore(JLPT_STORE)
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+  }
+  return jlptDbPromise
+}
+
+export async function getJLPTCacheEntries(keys: string[]): Promise<unknown[]> {
+  if (keys.length === 0) return []
+  const db = await openJLPTDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(JLPT_STORE, 'readonly')
+    const store = tx.objectStore(JLPT_STORE)
+    const results: unknown[] = new Array(keys.length)
+    let pending = keys.length
+    keys.forEach((key, i) => {
+      const req = store.get(key)
+      req.onsuccess = () => {
+        results[i] = req.result
+        if (--pending === 0) resolve(results)
+      }
+      req.onerror = () => reject(req.error)
+    })
+  })
+}
+
+export async function setJLPTCacheEntries(entries: [string, unknown][]): Promise<void> {
+  if (entries.length === 0) return
+  const db = await openJLPTDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(JLPT_STORE, 'readwrite')
+    const store = tx.objectStore(JLPT_STORE)
+    for (const [key, value] of entries) store.put(value, key)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function clearJLPTStore(): Promise<void> {
+  const db = await openJLPTDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(JLPT_STORE, 'readwrite')
+    tx.objectStore(JLPT_STORE).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+export async function getJLPTCacheCount(): Promise<number> {
+  const db = await openJLPTDB()
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(JLPT_STORE, 'readonly').objectStore(JLPT_STORE).count()
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+export async function getJLPTCacheSize(): Promise<number> {
+  const db = await openJLPTDB()
+  const values = await new Promise<unknown[]>((resolve, reject) => {
+    const req = db.transaction(JLPT_STORE, 'readonly').objectStore(JLPT_STORE).getAll()
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+  return new Blob([JSON.stringify(values)]).size
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export function getSettings(): Settings {
@@ -132,7 +211,7 @@ export function getSettings(): Settings {
     ollamaModel: 'qwen2.5:7b',
     wanikaniApiKey: '',
     wanikaniPopupMode: 'advanced',
-    wanikaniLevelColors: true,
+    kanjiLevelStyle: 'underline',
     showFurigana: true,
 theme: 'light',
   })
@@ -140,6 +219,13 @@ theme: 'light',
 
 export function saveSettings(settings: Settings): void {
   set(KEYS.settings, settings)
+}
+
+// Resolves how kanji are marked by level, migrating the legacy
+// `wanikaniLevelColors` boolean (false → off, otherwise → underline).
+export function getKanjiLevelStyle(): 'off' | 'highlight' | 'underline' {
+  const s = getSettings()
+  return s.kanjiLevelStyle ?? (s.wanikaniLevelColors === false ? 'off' : 'underline')
 }
 
 // ── Stories ───────────────────────────────────────────────────────────────────
@@ -183,6 +269,17 @@ export function getWKCacheBuiltAt(): Date | null {
 
 export function setWKCacheBuiltAt(): void {
   localStorage.setItem(KEYS.wkCacheBuiltAt, new Date().toISOString())
+}
+
+export function getJLPTCacheBuiltAt(): Date | null {
+  const raw = localStorage.getItem(KEYS.jlptCacheBuiltAt)
+  if (!raw) return null
+  const d = new Date(raw)
+  return isNaN(d.getTime()) ? null : d
+}
+
+export function setJLPTCacheBuiltAt(): void {
+  localStorage.setItem(KEYS.jlptCacheBuiltAt, new Date().toISOString())
 }
 
 // ── Export / Import ───────────────────────────────────────────────────────────
@@ -267,6 +364,7 @@ export async function exportConfig(): Promise<void> {
     ollamaModel: s.ollamaModel,
     wanikaniPopupMode: s.wanikaniPopupMode,
     wanikaniLevelColors: s.wanikaniLevelColors,
+    kanjiLevelStyle: s.kanjiLevelStyle,
     showFurigana: s.showFurigana,
     ttsVolume: s.ttsVolume,
     theme: s.theme,
@@ -298,6 +396,7 @@ export async function importConfig(file: File): Promise<void> {
   if (data.ollamaModel)                       s.ollamaModel        = data.ollamaModel
   if (data.wanikaniPopupMode)                 s.wanikaniPopupMode  = data.wanikaniPopupMode
   if (data.wanikaniLevelColors !== undefined) s.wanikaniLevelColors = data.wanikaniLevelColors
+  if (data.kanjiLevelStyle !== undefined)     s.kanjiLevelStyle    = data.kanjiLevelStyle
   if (data.showFurigana !== undefined)        s.showFurigana       = data.showFurigana
   if (data.ttsVolume !== undefined)           s.ttsVolume          = data.ttsVolume
 
@@ -321,8 +420,14 @@ export async function clearWKCache(): Promise<void> {
   localStorage.removeItem(KEYS.wkCacheBuiltAt)
 }
 
+export async function clearJLPTCache(): Promise<void> {
+  await clearJLPTStore()
+  localStorage.removeItem(KEYS.jlptCacheBuiltAt)
+}
+
 export async function clearAllData(): Promise<void> {
   await clearWKSubjectsStore()
+  await clearJLPTStore()
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k))
 }
 
