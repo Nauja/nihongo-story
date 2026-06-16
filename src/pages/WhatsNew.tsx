@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import { Spinner } from "react-bootstrap";
 import ReactMarkdown from "react-markdown";
-import { getReleases, RELEASES_URL, type GitHubRelease } from "../lib/github";
+import rehypeRaw from "rehype-raw";
+import { releases, RELEASES_URL, type GitHubRelease } from "../lib/github";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
@@ -44,9 +43,13 @@ function ReleaseCard({ release }: { release: GitHubRelease }) {
       {release.body ? (
         <div className="markdown-body small">
           <ReactMarkdown
+            rehypePlugins={[rehypeRaw]}
             components={{
               a: ({ node, ...props }) => (
                 <a {...props} target="_blank" rel="noopener noreferrer" />
+              ),
+              img: ({ node, ...props }) => (
+                <img {...props} style={{ maxWidth: "100%", ...props.style }} />
               ),
             }}
           >
@@ -63,28 +66,6 @@ function ReleaseCard({ release }: { release: GitHubRelease }) {
 }
 
 export default function WhatsNew() {
-  const [releases, setReleases] = useState<GitHubRelease[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
-
-  useEffect(() => {
-    let active = true;
-    getReleases()
-      .then((data) => {
-        if (!active) return;
-        setReleases(data);
-        setStatus("ready");
-      })
-      .catch(() => {
-        if (!active) return;
-        setStatus("error");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   return (
     <div>
       <header className="mb-4">
@@ -92,14 +73,7 @@ export default function WhatsNew() {
         <p className="text-secondary mb-0">What's New</p>
       </header>
 
-      {status === "loading" && (
-        <div className="d-flex align-items-center gap-2 text-secondary py-4">
-          <Spinner animation="border" size="sm" />
-          <span>Loading releases…</span>
-        </div>
-      )}
-
-      {status === "error" && (
+      {releases.length === 0 ? (
         <div
           className="p-4"
           style={{
@@ -108,21 +82,16 @@ export default function WhatsNew() {
             borderRadius: "0.375rem",
           }}
         >
-          <p className="mb-2">Couldn't load the latest releases.</p>
+          <p className="mb-2">No releases yet.</p>
           <a href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
             View releases on GitHub
           </a>
         </div>
-      )}
-
-      {status === "ready" && releases.length === 0 && (
-        <p className="text-secondary py-4">No releases yet.</p>
-      )}
-
-      {status === "ready" &&
+      ) : (
         releases.map((release) => (
           <ReleaseCard key={release.id} release={release} />
-        ))}
+        ))
+      )}
     </div>
   );
 }
